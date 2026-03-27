@@ -1,0 +1,3 @@
+[workspace]
+members = ["validation", "validation-derive", "validation-axum"]
+resolver = "2"

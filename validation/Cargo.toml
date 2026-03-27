@@ -1,0 +1,31 @@
+[package]
+name = "validation"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+validation-derive = { path = "../validation-derive" }
+
+# Optional: format validation crates (behind feature flags)
+regex = { version = "1", optional = true }
+email_address = { version = "0.2", optional = true }
+url = { version = "2", optional = true }
+uuid = { version = "1", optional = true }
+ulid = { version = "1", optional = true }
+chrono = { version = "0.4", default-features = false, features = ["alloc"], optional = true }
+chrono-tz = { version = "0.10", optional = true }
+
+# Optional: serialization
+serde = { version = "1", features = ["derive"], optional = true }
+serde_json = { version = "1", optional = true }
+
+[features]
+default = ["regex", "email", "url-parse", "uuid-parse", "chrono", "serde", "serde_json"]
+full = ["default", "ulid-parse", "timezone"]
+
+# Individual rule features
+email = ["dep:email_address"]
+url-parse = ["dep:url"]
+uuid-parse = ["dep:uuid"]
+ulid-parse = ["dep:ulid"]
+timezone = ["dep:chrono-tz"]
