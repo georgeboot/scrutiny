@@ -99,6 +99,30 @@ struct Profile {
 
 Default messages use `:attribute` (friendly field name), `:min`, `:max`, etc. The `attributes()` macro maps field names to display names.
 
+### Type-Aware Rules
+
+`min`, `max`, `between`, and `size` automatically detect the field type and do the right thing:
+
+```rust
+#[derive(Validate)]
+struct Query {
+    #[validate(min = 1, max = 10000)]   // numeric: compares value
+    per_page: f64,
+
+    #[validate(min = 2, max = 255)]     // string: compares length
+    search: String,
+
+    #[validate(min = 1, max = 10)]      // vec: compares item count
+    tags: Vec<String>,
+
+    #[validate(size = 4)]               // vec: exactly 4 items
+    bounding_box: Vec<f64>,
+
+    #[validate(between(min = 0, max = 100))]  // numeric: value in range
+    score: i32,
+}
+```
+
 ### Conditional Validation
 
 ```rust
@@ -242,10 +266,10 @@ Also available: `ValidForm<T>` and `ValidQuery<T>` for form-encoded and query pa
 ### Size & Length
 | Rule | Attribute | Description |
 |------|-----------|-------------|
-| min | `min = N` | Minimum length/value |
-| max | `max = N` | Maximum length/value |
-| between | `between(min, max)` | Length between min and max |
-| size | `size = N` | Exact length |
+| min | `min = N` | Type-aware: numeric value, string length, or Vec item count |
+| max | `max = N` | Type-aware: numeric value, string length, or Vec item count |
+| between | `between(min, max)` | Type-aware: value/length/count between min and max |
+| size | `size = N` | Type-aware: exact value, length, or count |
 | digits | `digits = N` | Exact digit count |
 | digits_between | `digits_between(min, max)` | Digit count between min and max |
 | decimal | `decimal = N` or `decimal(min, max)` | Exact or range of decimal places |

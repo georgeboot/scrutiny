@@ -8,18 +8,298 @@ use crate::parse::{
 };
 
 pub fn expand(input: DeriveInput) -> syn::Result<TokenStream> {
-    let struct_name = &input.ident;
+    let name = &input.ident;
     let struct_attrs = parse_struct_attrs(&input.attrs)?;
 
-    let fields = match &input.data {
-        Data::Struct(data) => match &data.fields {
-            Fields::Named(fields) => &fields.named,
-            _ => return Err(syn::Error::new_spanned(&input, "only named fields are supported")),
-        },
-        _ => return Err(syn::Error::new_spanned(&input, "Validate can only be derived for structs")),
-    };
+    match &input.data {
+        Data::Struct(data) => expand_struct(name, &struct_attrs, &data.fields),
+        Data::Enum(data) => expand_enum(name, &struct_attrs, data),
+        Data::Union(_) => Err(syn::Error::new_spanned(&input, "Validate cannot be derived for unions")),
+    }
+}
 
-    // Parse all fields
+fn expand_struct(
+    name: &syn::Ident,
+    struct_attrs: &StructAttrs,
+    fields: &Fields,
+) -> syn::Result<TokenStream> {
+    match fields {
+        Fields::Named(named) => {
+            let field_infos = parse_named_fields(&named.named)?;
+            let field_access_impl = gen_field_access(name, &field_infos);
+            let validate_impl = gen_validate(name, &field_infos, struct_attrs)?;
+            Ok(quote! {
+                #field_access_impl
+                #validate_impl
+            })
+        }
+        Fields::Unnamed(unnamed) => expand_tuple_struct(name, struct_attrs, unnamed),
+        Fields::Unit => {
+            // Unit struct: always valid
+            Ok(quote! {
+                impl ::validation::traits::FieldAccess for #name {
+                    fn get_field_value(&self, _field_name: &str) -> ::validation::value::FieldValue {
+                        ::validation::value::FieldValue::None
+                    }
+                }
+                impl ::validation::traits::Validate for #name {
+                    fn validate(&self) -> ::std::result::Result<(), ::validation::error::ValidationErrors> {
+                        ::std::result::Result::Ok(())
+                    }
+                }
+            })
+        }
+    }
+}
+
+fn expand_tuple_struct(
+    name: &syn::Ident,
+    struct_attrs: &StructAttrs,
+    unnamed: &syn::FieldsUnnamed,
+) -> syn::Result<TokenStream> {
+    let mut field_infos = Vec::new();
+    for (i, field) in unnamed.unnamed.iter().enumerate() {
+        let rules = parse_field_rules(&field.attrs)?;
+        let (is_option, is_vec, inner_type) = extract_type_info(&field.ty);
+        field_infos.push(FieldInfo {
+            name: format!("{}", i),
+            rules,
+            is_option,
+            is_vec,
+            inner_type,
+            ty: field.ty.clone(),
+        });
+    }
+
+    // FieldAccess: index-based lookup
+    let access_arms: Vec<TokenStream> = field_infos
+        .iter()
+        .enumerate()
+        .map(|(i, f)| {
+            let idx = syn::Index::from(i);
+            let name_str = &f.name;
+            let inner_ty = f.inner_type.as_ref().unwrap_or(&f.ty);
+            if is_convertible_type(inner_ty) {
+                quote! { #name_str => ::validation::value::FieldValue::from(&self.#idx), }
+            } else {
+                quote! { #name_str => ::validation::value::FieldValue::None, }
+            }
+        })
+        .collect();
+
+    // Validation: bind tuple fields to named vars, then use enum-style checks
+    let mut bindings = Vec::new();
+    let mut checks = Vec::new();
+
+    for (i, fi) in field_infos.iter().enumerate() {
+        let idx = syn::Index::from(i);
+        let var = format_ident!("__field_{}", i);
+        bindings.push(quote! { let #var = &self.#idx; });
+
+        if fi.rules.is_empty() {
+            continue;
+        }
+
+        let display_name = struct_attrs
+            .attributes
+            .iter()
+            .find(|(n, _)| *n == fi.name)
+            .map(|(_, d)| d.clone())
+            .unwrap_or_else(|| fi.name.clone());
+
+        let has_bail = fi.rules.iter().any(|r| r.name == "bail");
+        let real_rules: Vec<&FieldRule> = fi
+            .rules
+            .iter()
+            .filter(|r| !matches!(r.name.as_str(), "bail" | "nullable" | "sometimes"))
+            .collect();
+
+        let field_name = &fi.name;
+        for rule in &real_rules {
+            let check = gen_enum_field_check(rule, fi, &display_name, has_bail, &var, field_name)?;
+            checks.push(check);
+        }
+    }
+
+    Ok(quote! {
+        impl ::validation::traits::FieldAccess for #name {
+            fn get_field_value(&self, field_name: &str) -> ::validation::value::FieldValue {
+                match field_name {
+                    #(#access_arms)*
+                    _ => ::validation::value::FieldValue::None,
+                }
+            }
+        }
+        impl ::validation::traits::Validate for #name {
+            fn validate(&self) -> ::std::result::Result<(), ::validation::error::ValidationErrors> {
+                let mut errors = ::validation::error::ValidationErrors::new();
+                #(#bindings)*
+                #(#checks)*
+                if errors.is_empty() {
+                    ::std::result::Result::Ok(())
+                } else {
+                    ::std::result::Result::Err(errors)
+                }
+            }
+        }
+    })
+}
+
+fn expand_enum(
+    name: &syn::Ident,
+    struct_attrs: &StructAttrs,
+    data: &syn::DataEnum,
+) -> syn::Result<TokenStream> {
+    let mut variant_arms = Vec::new();
+
+    for variant in &data.variants {
+        let variant_name = &variant.ident;
+
+        match &variant.fields {
+            Fields::Named(named) => {
+                let field_infos = parse_named_fields(&named.named)?;
+                let has_rules = field_infos.iter().any(|f| !f.rules.is_empty());
+
+                if !has_rules {
+                    // No validation needed for this variant
+                    let field_names: Vec<_> = named.named.iter()
+                        .map(|f| f.ident.as_ref().unwrap())
+                        .collect();
+                    variant_arms.push(quote! {
+                        Self::#variant_name { #(#field_names: _),* } => {}
+                    });
+                    continue;
+                }
+
+                let field_bindings: Vec<_> = named.named.iter()
+                    .map(|f| f.ident.as_ref().unwrap())
+                    .collect();
+
+                // Generate validation for each field in this variant
+                let mut checks = Vec::new();
+                for fi in &field_infos {
+                    if fi.rules.is_empty() {
+                        continue;
+                    }
+                    let display_name = struct_attrs
+                        .attributes
+                        .iter()
+                        .find(|(n, _)| *n == fi.name)
+                        .map(|(_, d)| d.clone())
+                        .unwrap_or_else(|| fi.name.replace('_', " "));
+
+                    let has_bail = fi.rules.iter().any(|r| r.name == "bail");
+                    let real_rules: Vec<&FieldRule> = fi
+                        .rules
+                        .iter()
+                        .filter(|r| !matches!(r.name.as_str(), "bail" | "nullable" | "sometimes"))
+                        .collect();
+
+                    if real_rules.is_empty() {
+                        continue;
+                    }
+
+                    let field_ident = format_ident!("{}", fi.name);
+                    let field_name = &fi.name;
+
+                    // For enums, we need to generate checks that use the bound variable
+                    // directly, not `self.field`. We create a temporary struct-like scope.
+                    for rule in &real_rules {
+                        let check = gen_enum_field_check(rule, fi, &display_name, has_bail, &field_ident, field_name)?;
+                        checks.push(check);
+                    }
+                }
+
+                variant_arms.push(quote! {
+                    Self::#variant_name { #(#field_bindings),* } => {
+                        #(#checks)*
+                    }
+                });
+            }
+            Fields::Unnamed(unnamed) => {
+                // Tuple variants: validate inner fields by index
+                let mut has_any_rules = false;
+                let mut bindings = Vec::new();
+                let mut checks = Vec::new();
+
+                for (i, field) in unnamed.unnamed.iter().enumerate() {
+                    let rules = parse_field_rules(&field.attrs)?;
+                    let binding = format_ident!("__field_{}", i);
+                    bindings.push(binding.clone());
+
+                    if rules.is_empty() {
+                        continue;
+                    }
+                    has_any_rules = true;
+                    let (is_option, is_vec, inner_type) = extract_type_info(&field.ty);
+                    let fi = FieldInfo {
+                        name: format!("{}", i),
+                        rules,
+                        is_option,
+                        is_vec,
+                        inner_type,
+                        ty: field.ty.clone(),
+                    };
+
+                    let display_name = fi.name.clone();
+                    let has_bail = fi.rules.iter().any(|r| r.name == "bail");
+                    let real_rules: Vec<&FieldRule> = fi
+                        .rules
+                        .iter()
+                        .filter(|r| !matches!(r.name.as_str(), "bail" | "nullable" | "sometimes"))
+                        .collect();
+
+                    let field_name = &fi.name;
+                    for rule in &real_rules {
+                        let check = gen_enum_field_check(rule, &fi, &display_name, has_bail, &binding, field_name)?;
+                        checks.push(check);
+                    }
+                }
+
+                if !has_any_rules {
+                    let wildcards: Vec<_> = bindings.iter().map(|_| quote! { _ }).collect();
+                    variant_arms.push(quote! {
+                        Self::#variant_name(#(#wildcards),*) => {}
+                    });
+                } else {
+                    variant_arms.push(quote! {
+                        Self::#variant_name(#(#bindings),*) => {
+                            #(#checks)*
+                        }
+                    });
+                }
+            }
+            Fields::Unit => {
+                variant_arms.push(quote! {
+                    Self::#variant_name => {}
+                });
+            }
+        }
+    }
+
+    Ok(quote! {
+        impl ::validation::traits::FieldAccess for #name {
+            fn get_field_value(&self, _field_name: &str) -> ::validation::value::FieldValue {
+                ::validation::value::FieldValue::None
+            }
+        }
+        impl ::validation::traits::Validate for #name {
+            fn validate(&self) -> ::std::result::Result<(), ::validation::error::ValidationErrors> {
+                let mut errors = ::validation::error::ValidationErrors::new();
+                match self {
+                    #(#variant_arms)*
+                }
+                if errors.is_empty() {
+                    ::std::result::Result::Ok(())
+                } else {
+                    ::std::result::Result::Err(errors)
+                }
+            }
+        }
+    })
+}
+
+fn parse_named_fields(fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>) -> syn::Result<Vec<FieldInfo>> {
     let mut field_infos = Vec::new();
     for field in fields {
         let name = field.ident.as_ref().unwrap().to_string();
@@ -34,14 +314,7 @@ pub fn expand(input: DeriveInput) -> syn::Result<TokenStream> {
             ty: field.ty.clone(),
         });
     }
-
-    let field_access_impl = gen_field_access(struct_name, &field_infos);
-    let validate_impl = gen_validate(struct_name, &field_infos, &struct_attrs)?;
-
-    Ok(quote! {
-        #field_access_impl
-        #validate_impl
-    })
+    Ok(field_infos)
 }
 
 /// Classification of a field's inner type for rule generation.
@@ -1404,6 +1677,253 @@ fn extract_field_value_params(rule: &FieldRule) -> syn::Result<(String, String)>
             Ok((f, v))
         }
         _ => Err(syn::Error::new(rule.span, format!("{} requires field and value", rule.name))),
+    }
+}
+
+/// Generate a rule check for an enum variant field.
+/// Uses the bound variable directly instead of `self.field`.
+fn gen_enum_field_check(
+    rule: &FieldRule,
+    field: &FieldInfo,
+    display_name: &str,
+    has_bail: bool,
+    var_ident: &syn::Ident,
+    field_name: &str,
+) -> syn::Result<TokenStream> {
+    let bail_break = if has_bail {
+        quote! { break 'bail; }
+    } else {
+        quote! {}
+    };
+
+    let msg = rule.message.clone().unwrap_or_else(|| {
+        default_message_for_rule(&rule.name, display_name, &rule.params)
+    });
+
+    // For string-based rules on Option<String>, generate if-let check
+    // For required, generate presence check
+    // For other rules, delegate to appropriate check
+
+    match rule.name.as_str() {
+        "required" => {
+            if field.is_option {
+                Ok(quote! {
+                    if !::validation::rules::presence::is_present_option(#var_ident) {
+                        errors.add(#field_name, ::validation::error::ValidationError::new("required", #msg));
+                        #bail_break
+                    }
+                })
+            } else {
+                Ok(quote! {
+                    if !::validation::rules::presence::Presentable::is_present(#var_ident) {
+                        errors.add(#field_name, ::validation::error::ValidationError::new("required", #msg));
+                        #bail_break
+                    }
+                })
+            }
+        }
+
+        "nested" | "dive" => {
+            if field.is_option {
+                Ok(quote! {
+                    if let Some(ref inner) = #var_ident {
+                        if let ::std::result::Result::Err(nested_errors) = ::validation::traits::Validate::validate(inner) {
+                            errors.merge_with_prefix(#field_name, nested_errors);
+                        }
+                    }
+                })
+            } else {
+                Ok(quote! {
+                    if let ::std::result::Result::Err(nested_errors) = ::validation::traits::Validate::validate(#var_ident) {
+                        errors.merge_with_prefix(#field_name, nested_errors);
+                    }
+                })
+            }
+        }
+
+        // Numeric min/max for enum/tuple fields
+        "min" | "max" if matches!(classify_field(field), FieldKind::Integer | FieldKind::Float) => {
+            let rule_name = &rule.name;
+            let value_str = extract_single_value(rule, &rule.name)?;
+            let raw_lit: proc_macro2::TokenStream = value_str.parse().map_err(|_| {
+                syn::Error::new(rule.span, format!("{} value must be a number", rule.name))
+            })?;
+            let inner_ty = field.inner_type.as_ref().unwrap_or(&field.ty);
+            let lit = quote! { (#raw_lit as #inner_ty) };
+            let check = if rule.name == "min" {
+                quote! { *val >= #lit }
+            } else {
+                quote! { *val <= #lit }
+            };
+
+            if field.is_option {
+                Ok(quote! {
+                    if let Some(val) = #var_ident {
+                        if !(#check) {
+                            errors.add(#field_name, ::validation::error::ValidationError::new(#rule_name, #msg));
+                            #bail_break
+                        }
+                    }
+                })
+            } else {
+                Ok(quote! {
+                    {
+                        let val = #var_ident;
+                        if !(#check) {
+                            errors.add(#field_name, ::validation::error::ValidationError::new(#rule_name, #msg));
+                            #bail_break
+                        }
+                    }
+                })
+            }
+        }
+
+        // For all other rules, wrap with Option check and delegate to string check
+        _ => {
+            let rule_name = &rule.name;
+            let check_expr = gen_string_check_expr(rule, field, display_name)?;
+
+            if let Some(check) = check_expr {
+                if field.is_option {
+                    Ok(quote! {
+                        if let Some(val) = #var_ident {
+                            if !#check {
+                                errors.add(#field_name, ::validation::error::ValidationError::new(#rule_name, #msg));
+                                #bail_break
+                            }
+                        }
+                    })
+                } else {
+                    Ok(quote! {
+                        {
+                            let val = #var_ident;
+                            let val: &str = val.as_ref();
+                            if !#check {
+                                errors.add(#field_name, ::validation::error::ValidationError::new(#rule_name, #msg));
+                                #bail_break
+                            }
+                        }
+                    })
+                }
+            } else {
+                Ok(TokenStream::new())
+            }
+        }
+    }
+}
+
+/// Get the string check expression for a rule (without the error handling wrapper).
+/// Returns None for rules that need cross-field access (same, different, gt, etc.)
+fn gen_string_check_expr(
+    rule: &FieldRule,
+    field: &FieldInfo,
+    _display_name: &str,
+) -> syn::Result<Option<TokenStream>> {
+    Ok(match rule.name.as_str() {
+        "email" => Some(quote! { ::validation::rules::format::is_email(val) }),
+        "url" => Some(quote! { ::validation::rules::format::is_url(val) }),
+        "alpha" => Some(quote! { ::validation::rules::string::is_alpha(val) }),
+        "alpha_num" => Some(quote! { ::validation::rules::string::is_alpha_num(val) }),
+        "alpha_dash" => Some(quote! { ::validation::rules::string::is_alpha_dash(val) }),
+        "numeric" => Some(quote! { ::validation::rules::string::is_numeric(val) }),
+        "integer" => Some(quote! { ::validation::rules::string::is_integer(val) }),
+        "ascii" => Some(quote! { ::validation::rules::format::is_ascii(val) }),
+        "uuid" => Some(quote! { ::validation::rules::format::is_uuid(val) }),
+        "ulid" => Some(quote! { ::validation::rules::format::is_ulid(val) }),
+        "ip" => Some(quote! { ::validation::rules::format::is_ip(val) }),
+        "ipv4" => Some(quote! { ::validation::rules::format::is_ipv4(val) }),
+        "ipv6" => Some(quote! { ::validation::rules::format::is_ipv6(val) }),
+        "json" => Some(quote! { ::validation::rules::format::is_json(val) }),
+        "mac_address" => Some(quote! { ::validation::rules::format::is_mac_address(val) }),
+        "hex_color" => Some(quote! { ::validation::rules::format::is_hex_color(val) }),
+        "uppercase" => Some(quote! { ::validation::rules::string::is_uppercase(val) }),
+        "lowercase" => Some(quote! { ::validation::rules::string::is_lowercase(val) }),
+        "date" => Some(quote! { ::validation::rules::format::is_iso_date(val) }),
+        "datetime" => Some(quote! { ::validation::rules::format::is_iso_datetime(val) }),
+        "min" => {
+            let v = extract_single_value(rule, "min")?;
+            let kind = classify_field(field);
+            match kind {
+                FieldKind::Integer | FieldKind::Float => {
+                    let inner_ty = field.inner_type.as_ref().unwrap_or(&field.ty);
+                    let raw: proc_macro2::TokenStream = v.parse().unwrap();
+                    return Ok(Some(quote! { { let val = #raw as #inner_ty; *val >= val } }));
+                }
+                _ => {
+                    let n: usize = v.parse().unwrap_or(0);
+                    Some(quote! { ::validation::rules::string::check_min_length(val, #n) })
+                }
+            }
+        }
+        "max" => {
+            let v = extract_single_value(rule, "max")?;
+            let kind = classify_field(field);
+            match kind {
+                FieldKind::Integer | FieldKind::Float => {
+                    let inner_ty = field.inner_type.as_ref().unwrap_or(&field.ty);
+                    let raw: proc_macro2::TokenStream = v.parse().unwrap();
+                    return Ok(Some(quote! { { let val = #raw as #inner_ty; *val <= val } }));
+                }
+                _ => {
+                    let n: usize = v.parse().unwrap_or(0);
+                    Some(quote! { ::validation::rules::string::check_max_length(val, #n) })
+                }
+            }
+        }
+        "regex" => {
+            let pattern = extract_single_value(rule, "regex")?;
+            Some(quote! { ::validation::rules::format::matches_regex(val, #pattern) })
+        }
+        "not_regex" => {
+            let pattern = extract_single_value(rule, "not_regex")?;
+            Some(quote! { ::validation::rules::format::not_matches_regex(val, #pattern) })
+        }
+        "contains" => {
+            let needle = extract_single_value(rule, "contains")?;
+            Some(quote! { ::validation::rules::string::contains(val, #needle) })
+        }
+        "starts_with" => {
+            let prefix = extract_single_value(rule, "starts_with")?;
+            Some(quote! { ::validation::rules::string::starts_with(val, #prefix) })
+        }
+        "ends_with" => {
+            let suffix = extract_single_value(rule, "ends_with")?;
+            Some(quote! { ::validation::rules::string::ends_with(val, #suffix) })
+        }
+        "in_list" => {
+            let items = match &rule.params {
+                RuleParams::List(items) => items.clone(),
+                _ => return Ok(None),
+            };
+            Some(quote! { ::validation::rules::comparison::is_in(val, &[#(#items),*]) })
+        }
+        "string" | "boolean" | "filled" | "accepted" | "declined" => {
+            // These work the same way in enums
+            match rule.name.as_str() {
+                "filled" => Some(quote! { ::validation::rules::presence::is_filled(val) }),
+                "accepted" => Some(quote! { ::validation::rules::presence::is_accepted(val) }),
+                "declined" => Some(quote! { ::validation::rules::presence::is_declined(val) }),
+                "boolean" => Some(quote! { matches!(val, "true" | "false" | "1" | "0") }),
+                _ => Some(quote! { true }),
+            }
+        }
+        // Cross-field rules don't work in enum context (no FieldAccess)
+        _ => None,
+    })
+}
+
+/// Default message for a rule (used by enum variant checks).
+fn default_message_for_rule(rule_name: &str, display_name: &str, _params: &RuleParams) -> String {
+    match rule_name {
+        "required" => format!("The {} field is required.", display_name),
+        "email" => format!("The {} field must be a valid email address.", display_name),
+        "url" => format!("The {} field must be a valid URL.", display_name),
+        "min" => format!("The {} field is too small.", display_name),
+        "max" => format!("The {} field is too large.", display_name),
+        "alpha" => format!("The {} field must only contain letters.", display_name),
+        "uuid" => format!("The {} field must be a valid UUID.", display_name),
+        "date" => format!("The {} field must be a valid ISO 8601 date (YYYY-MM-DD).", display_name),
+        _ => format!("The {} field is invalid.", display_name),
     }
 }
 

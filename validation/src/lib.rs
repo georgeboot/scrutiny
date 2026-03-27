@@ -139,9 +139,11 @@
 //! `starts_with`, `ends_with`, `doesnt_start_with`, `doesnt_end_with`,
 //! `contains`, `doesnt_contain`, `regex`, `not_regex`
 //!
-//! ### Size & Length
-//! `min`, `max`, `between`, `size`, `digits`, `digits_between`, `decimal`,
-//! `multiple_of`
+//! ### Size, Length & Range
+//! `min`, `max`, `between`, `size` — **type-aware**: compares numeric values
+//! for number fields, string length for `String`, and item count for `Vec`.
+//!
+//! `digits`, `digits_between`, `decimal`, `multiple_of`
 //!
 //! ### Comparison
 //! `same`, `different`, `confirmed`, `gt`, `gte`, `lt`, `lte`,
