@@ -100,12 +100,23 @@ impl From<bool> for FieldValue {
     }
 }
 
+impl From<&bool> for FieldValue {
+    fn from(b: &bool) -> Self {
+        FieldValue::Bool(*b)
+    }
+}
+
 macro_rules! impl_from_int {
     ($($t:ty),*) => {
         $(
             impl From<$t> for FieldValue {
                 fn from(v: $t) -> Self {
                     FieldValue::Int(v as i64)
+                }
+            }
+            impl From<&$t> for FieldValue {
+                fn from(v: &$t) -> Self {
+                    FieldValue::Int(*v as i64)
                 }
             }
         )*
@@ -120,6 +131,11 @@ macro_rules! impl_from_uint {
                     FieldValue::Uint(v as u64)
                 }
             }
+            impl From<&$t> for FieldValue {
+                fn from(v: &$t) -> Self {
+                    FieldValue::Uint(*v as u64)
+                }
+            }
         )*
     };
 }
@@ -130,6 +146,11 @@ macro_rules! impl_from_float {
             impl From<$t> for FieldValue {
                 fn from(v: $t) -> Self {
                     FieldValue::Float(v as f64)
+                }
+            }
+            impl From<&$t> for FieldValue {
+                fn from(v: &$t) -> Self {
+                    FieldValue::Float(*v as f64)
                 }
             }
         )*

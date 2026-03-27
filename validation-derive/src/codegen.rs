@@ -44,6 +44,42 @@ pub fn expand(input: DeriveInput) -> syn::Result<TokenStream> {
     })
 }
 
+/// Classification of a field's inner type for rule generation.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum FieldKind {
+    String,
+    Integer,
+    Float,
+    Vec,
+    Other,
+}
+
+fn classify_type(ty: &syn::Type) -> FieldKind {
+    if let syn::Type::Path(type_path) = ty
+        && let Some(segment) = type_path.path.segments.last()
+    {
+        let name = segment.ident.to_string();
+        return match name.as_str() {
+            "String" => FieldKind::String,
+            "i8" | "i16" | "i32" | "i64" | "u8" | "u16" | "u32" | "u64" | "isize" | "usize" => FieldKind::Integer,
+            "f32" | "f64" => FieldKind::Float,
+            "Vec" => FieldKind::Vec,
+            _ => FieldKind::Other,
+        };
+    }
+    FieldKind::Other
+}
+
+/// Classify a field for min/max/between/size rule generation.
+/// Checks Vec first (from field.is_vec), then classifies the inner type.
+fn classify_field(field: &FieldInfo) -> FieldKind {
+    if field.is_vec {
+        return FieldKind::Vec;
+    }
+    let ty = field.inner_type.as_ref().unwrap_or(&field.ty);
+    classify_type(ty)
+}
+
 /// Check if a type is a known primitive/string type that can be converted to FieldValue.
 fn is_convertible_type(ty: &syn::Type) -> bool {
     if let syn::Type::Path(type_path) = ty
@@ -378,43 +414,63 @@ fn gen_rule_check(
         }
 
         "min" => {
-            let value_str = match &rule.params {
-                RuleParams::Value(v) => v.clone(),
-                RuleParams::Named(params) => params
-                    .iter()
-                    .find(|(k, _)| k == "value")
-                    .map(|(_, v)| v.clone())
-                    .ok_or_else(|| syn::Error::new(rule.span, "min requires a value"))?,
-                _ => return Err(syn::Error::new(rule.span, "min requires a value")),
-            };
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must be at least {} characters.", display_name, value_str)
-            });
-            let min_val: usize = value_str.parse().map_err(|_| {
-                syn::Error::new(rule.span, "min value must be a positive integer")
-            })?;
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "min", has_bail,
-                quote! { ::validation::rules::string::check_min_length(val, #min_val) })
+            let value_str = extract_single_value(rule, "min")?;
+            let kind = classify_field(field);
+            match kind {
+                FieldKind::Integer | FieldKind::Float => {
+                    let msg = rule.message.clone().unwrap_or_else(|| {
+                        format!("The {} field must be at least {}.", display_name, value_str)
+                    });
+                    gen_numeric_rule_check(field, &field_ident, field_name, &msg, "min", has_bail, &value_str,
+                        |v| quote! { *val >= #v })
+                }
+                FieldKind::Vec => {
+                    let msg = rule.message.clone().unwrap_or_else(|| {
+                        format!("The {} field must have at least {} items.", display_name, value_str)
+                    });
+                    let min_val: usize = value_str.parse().map_err(|_| syn::Error::new(rule.span, "min must be an integer for Vec"))?;
+                    gen_vec_rule_check(field, &field_ident, field_name, &msg, "min", has_bail,
+                        quote! { val.len() >= #min_val })
+                }
+                _ => {
+                    let msg = rule.message.clone().unwrap_or_else(|| {
+                        format!("The {} field must be at least {} characters.", display_name, value_str)
+                    });
+                    let min_val: usize = value_str.parse().map_err(|_| syn::Error::new(rule.span, "min must be a number"))?;
+                    gen_string_rule_check(field, &field_ident, field_name, &msg, "min", has_bail,
+                        quote! { ::validation::rules::string::check_min_length(val, #min_val) })
+                }
+            }
         }
 
         "max" => {
-            let value_str = match &rule.params {
-                RuleParams::Value(v) => v.clone(),
-                RuleParams::Named(params) => params
-                    .iter()
-                    .find(|(k, _)| k == "value")
-                    .map(|(_, v)| v.clone())
-                    .ok_or_else(|| syn::Error::new(rule.span, "max requires a value"))?,
-                _ => return Err(syn::Error::new(rule.span, "max requires a value")),
-            };
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must not exceed {} characters.", display_name, value_str)
-            });
-            let max_val: usize = value_str.parse().map_err(|_| {
-                syn::Error::new(rule.span, "max value must be a positive integer")
-            })?;
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "max", has_bail,
-                quote! { ::validation::rules::string::check_max_length(val, #max_val) })
+            let value_str = extract_single_value(rule, "max")?;
+            let kind = classify_field(field);
+            match kind {
+                FieldKind::Integer | FieldKind::Float => {
+                    let msg = rule.message.clone().unwrap_or_else(|| {
+                        format!("The {} field must not exceed {}.", display_name, value_str)
+                    });
+                    gen_numeric_rule_check(field, &field_ident, field_name, &msg, "max", has_bail, &value_str,
+                        |v| quote! { *val <= #v })
+                }
+                FieldKind::Vec => {
+                    let msg = rule.message.clone().unwrap_or_else(|| {
+                        format!("The {} field must not have more than {} items.", display_name, value_str)
+                    });
+                    let max_val: usize = value_str.parse().map_err(|_| syn::Error::new(rule.span, "max must be an integer for Vec"))?;
+                    gen_vec_rule_check(field, &field_ident, field_name, &msg, "max", has_bail,
+                        quote! { val.len() <= #max_val })
+                }
+                _ => {
+                    let msg = rule.message.clone().unwrap_or_else(|| {
+                        format!("The {} field must not exceed {} characters.", display_name, value_str)
+                    });
+                    let max_val: usize = value_str.parse().map_err(|_| syn::Error::new(rule.span, "max must be a number"))?;
+                    gen_string_rule_check(field, &field_ident, field_name, &msg, "max", has_bail,
+                        quote! { ::validation::rules::string::check_max_length(val, #max_val) })
+                }
+            }
         }
 
         "between" => {
@@ -428,13 +484,37 @@ fn gen_rule_check(
                 }
                 _ => return Err(syn::Error::new(rule.span, "between requires min and max")),
             };
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must be between {} and {} characters.", display_name, min_str, max_str)
-            });
-            let min_val: usize = min_str.parse().map_err(|_| syn::Error::new(rule.span, "between min must be integer"))?;
-            let max_val: usize = max_str.parse().map_err(|_| syn::Error::new(rule.span, "between max must be integer"))?;
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "between", has_bail,
-                quote! { ::validation::rules::string::check_between_length(val, #min_val, #max_val) })
+            let kind = classify_field(field);
+            match kind {
+                FieldKind::Integer | FieldKind::Float => {
+                    let msg = rule.message.clone().unwrap_or_else(|| {
+                        format!("The {} field must be between {} and {}.", display_name, min_str, max_str)
+                    });
+                    let min_lit: proc_macro2::TokenStream = min_str.parse().map_err(|_| syn::Error::new(rule.span, "between min must be a number"))?;
+                    let max_lit: proc_macro2::TokenStream = max_str.parse().map_err(|_| syn::Error::new(rule.span, "between max must be a number"))?;
+                    let inner_ty = field.inner_type.as_ref().unwrap_or(&field.ty);
+                    gen_numeric_rule_check_raw(field, &field_ident, field_name, &msg, "between", has_bail,
+                        quote! { *val >= (#min_lit as #inner_ty) && *val <= (#max_lit as #inner_ty) })
+                }
+                FieldKind::Vec => {
+                    let msg = rule.message.clone().unwrap_or_else(|| {
+                        format!("The {} field must have between {} and {} items.", display_name, min_str, max_str)
+                    });
+                    let min_val: usize = min_str.parse().map_err(|_| syn::Error::new(rule.span, "between min must be integer for Vec"))?;
+                    let max_val: usize = max_str.parse().map_err(|_| syn::Error::new(rule.span, "between max must be integer for Vec"))?;
+                    gen_vec_rule_check(field, &field_ident, field_name, &msg, "between", has_bail,
+                        quote! { val.len() >= #min_val && val.len() <= #max_val })
+                }
+                _ => {
+                    let msg = rule.message.clone().unwrap_or_else(|| {
+                        format!("The {} field must be between {} and {} characters.", display_name, min_str, max_str)
+                    });
+                    let min_val: usize = min_str.parse().map_err(|_| syn::Error::new(rule.span, "between min must be integer"))?;
+                    let max_val: usize = max_str.parse().map_err(|_| syn::Error::new(rule.span, "between max must be integer"))?;
+                    gen_string_rule_check(field, &field_ident, field_name, &msg, "between", has_bail,
+                        quote! { ::validation::rules::string::check_between_length(val, #min_val, #max_val) })
+                }
+            }
         }
 
         "regex" => {
@@ -1092,14 +1172,32 @@ fn gen_rule_check(
 
         "size" => {
             let value_str = extract_single_value(rule, "size")?;
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must be exactly {} characters.", display_name, value_str)
-            });
-            let size_val: usize = value_str.parse().map_err(|_| {
-                syn::Error::new(rule.span, "size value must be a positive integer")
-            })?;
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "size", has_bail,
-                quote! { ::validation::rules::string::check_size(val, #size_val) })
+            let kind = classify_field(field);
+            match kind {
+                FieldKind::Integer | FieldKind::Float => {
+                    let msg = rule.message.clone().unwrap_or_else(|| {
+                        format!("The {} field must be exactly {}.", display_name, value_str)
+                    });
+                    gen_numeric_rule_check(field, &field_ident, field_name, &msg, "size", has_bail, &value_str,
+                        |v| quote! { *val == #v })
+                }
+                FieldKind::Vec => {
+                    let msg = rule.message.clone().unwrap_or_else(|| {
+                        format!("The {} field must have exactly {} items.", display_name, value_str)
+                    });
+                    let size_val: usize = value_str.parse().map_err(|_| syn::Error::new(rule.span, "size must be integer for Vec"))?;
+                    gen_vec_rule_check(field, &field_ident, field_name, &msg, "size", has_bail,
+                        quote! { val.len() == #size_val })
+                }
+                _ => {
+                    let msg = rule.message.clone().unwrap_or_else(|| {
+                        format!("The {} field must be exactly {} characters.", display_name, value_str)
+                    });
+                    let size_val: usize = value_str.parse().map_err(|_| syn::Error::new(rule.span, "size must be a number"))?;
+                    gen_string_rule_check(field, &field_ident, field_name, &msg, "size", has_bail,
+                        quote! { ::validation::rules::string::check_size(val, #size_val) })
+                }
+            }
         }
 
         "digits" => {
@@ -1379,6 +1477,104 @@ fn gen_string_rule_check(
                 let val = &self.#field_ident;
                 let val: &str = val.as_ref();
                 if !#check_expr {
+                    errors.add(#field_name, ::validation::error::ValidationError::new(#rule_name, #msg));
+                    #bail_break
+                }
+            }
+        })
+    }
+}
+
+/// Helper to generate a numeric rule check, handling Option<T> unwrapping.
+/// `make_check` receives the parsed literal as a TokenStream and returns the condition.
+#[allow(clippy::too_many_arguments)]
+fn gen_numeric_rule_check(
+    field: &FieldInfo,
+    field_ident: &syn::Ident,
+    field_name: &str,
+    msg: &str,
+    rule_name: &str,
+    has_bail: bool,
+    value_str: &str,
+    make_check: impl FnOnce(proc_macro2::TokenStream) -> TokenStream,
+) -> syn::Result<TokenStream> {
+    let raw_lit: proc_macro2::TokenStream = value_str.parse().map_err(|_| {
+        syn::Error::new_spanned(field_ident, format!("{} value must be a number", rule_name))
+    })?;
+    let inner_ty = field.inner_type.as_ref().unwrap_or(&field.ty);
+    let lit = quote! { (#raw_lit as #inner_ty) };
+    let check_expr = make_check(lit);
+    gen_numeric_rule_check_raw(field, field_ident, field_name, msg, rule_name, has_bail, check_expr)
+}
+
+/// Helper to generate a numeric rule check with a pre-built check expression.
+fn gen_numeric_rule_check_raw(
+    field: &FieldInfo,
+    field_ident: &syn::Ident,
+    field_name: &str,
+    msg: &str,
+    rule_name: &str,
+    has_bail: bool,
+    check_expr: TokenStream,
+) -> syn::Result<TokenStream> {
+    let bail_break = if has_bail {
+        quote! { break 'bail; }
+    } else {
+        quote! {}
+    };
+
+    if field.is_option {
+        Ok(quote! {
+            if let Some(ref val) = self.#field_ident {
+                if !(#check_expr) {
+                    errors.add(#field_name, ::validation::error::ValidationError::new(#rule_name, #msg));
+                    #bail_break
+                }
+            }
+        })
+    } else {
+        Ok(quote! {
+            {
+                let val = &self.#field_ident;
+                if !(#check_expr) {
+                    errors.add(#field_name, ::validation::error::ValidationError::new(#rule_name, #msg));
+                    #bail_break
+                }
+            }
+        })
+    }
+}
+
+/// Helper to generate a Vec rule check, handling Option<Vec<T>> unwrapping.
+fn gen_vec_rule_check(
+    field: &FieldInfo,
+    field_ident: &syn::Ident,
+    field_name: &str,
+    msg: &str,
+    rule_name: &str,
+    has_bail: bool,
+    check_expr: TokenStream,
+) -> syn::Result<TokenStream> {
+    let bail_break = if has_bail {
+        quote! { break 'bail; }
+    } else {
+        quote! {}
+    };
+
+    if field.is_option {
+        Ok(quote! {
+            if let Some(ref val) = self.#field_ident {
+                if !(#check_expr) {
+                    errors.add(#field_name, ::validation::error::ValidationError::new(#rule_name, #msg));
+                    #bail_break
+                }
+            }
+        })
+    } else {
+        Ok(quote! {
+            {
+                let val = &self.#field_ident;
+                if !(#check_expr) {
                     errors.add(#field_name, ::validation::error::ValidationError::new(#rule_name, #msg));
                     #bail_break
                 }

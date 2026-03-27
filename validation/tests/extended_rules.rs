@@ -566,3 +566,168 @@ fn test_distinct_fails() {
     };
     assert!(d.validate().is_err());
 }
+
+// ── Numeric min/max/between ──
+
+#[derive(Validate)]
+struct Pagination {
+    #[validate(min = 1, max = 10000)]
+    per_page: f64,
+    #[validate(min = 1)]
+    page: f64,
+    #[validate(nullable, min = 0)]
+    offset: Option<f64>,
+}
+
+#[test]
+fn test_numeric_min_max_valid() {
+    let p = Pagination { per_page: 25.0, page: 1.0, offset: None };
+    assert!(p.validate().is_ok());
+}
+
+#[test]
+fn test_numeric_min_fails() {
+    let p = Pagination { per_page: 0.0, page: 1.0, offset: None };
+    assert!(p.validate().is_err());
+}
+
+#[test]
+fn test_numeric_max_fails() {
+    let p = Pagination { per_page: 99999.0, page: 1.0, offset: None };
+    assert!(p.validate().is_err());
+}
+
+#[test]
+fn test_numeric_option_none_ok() {
+    let p = Pagination { per_page: 10.0, page: 1.0, offset: None };
+    assert!(p.validate().is_ok());
+}
+
+#[test]
+fn test_numeric_option_valid() {
+    let p = Pagination { per_page: 10.0, page: 1.0, offset: Some(5.0) };
+    assert!(p.validate().is_ok());
+}
+
+#[test]
+fn test_numeric_option_invalid() {
+    let p = Pagination { per_page: 10.0, page: 1.0, offset: Some(-1.0) };
+    assert!(p.validate().is_err());
+}
+
+#[derive(Validate)]
+struct IntRanges {
+    #[validate(between(min = 1, max = 100))]
+    score: i32,
+    #[validate(min = 0, max = 255)]
+    level: u32,
+}
+
+#[test]
+fn test_int_between_valid() {
+    let r = IntRanges { score: 50, level: 100 };
+    assert!(r.validate().is_ok());
+}
+
+#[test]
+fn test_int_between_too_low() {
+    let r = IntRanges { score: 0, level: 100 };
+    assert!(r.validate().is_err());
+}
+
+#[test]
+fn test_int_between_too_high() {
+    let r = IntRanges { score: 101, level: 100 };
+    assert!(r.validate().is_err());
+}
+
+#[test]
+fn test_int_max_fails() {
+    let r = IntRanges { score: 50, level: 256 };
+    assert!(r.validate().is_err());
+}
+
+// ── Vec min/max/size ──
+
+#[derive(Validate)]
+struct VecRules {
+    #[validate(min = 1, max = 5)]
+    tags: Vec<String>,
+    #[validate(size = 3)]
+    coordinates: Vec<f64>,
+}
+
+#[test]
+fn test_vec_min_max_valid() {
+    let v = VecRules {
+        tags: vec!["a".into(), "b".into()],
+        coordinates: vec![1.0, 2.0, 3.0],
+    };
+    assert!(v.validate().is_ok());
+}
+
+#[test]
+fn test_vec_empty_fails_min() {
+    let v = VecRules {
+        tags: vec![],
+        coordinates: vec![1.0, 2.0, 3.0],
+    };
+    assert!(v.validate().is_err());
+}
+
+#[test]
+fn test_vec_too_many_fails_max() {
+    let v = VecRules {
+        tags: vec!["a".into(), "b".into(), "c".into(), "d".into(), "e".into(), "f".into()],
+        coordinates: vec![1.0, 2.0, 3.0],
+    };
+    assert!(v.validate().is_err());
+}
+
+#[test]
+fn test_vec_wrong_size() {
+    let v = VecRules {
+        tags: vec!["a".into()],
+        coordinates: vec![1.0, 2.0], // needs exactly 3
+    };
+    assert!(v.validate().is_err());
+}
+
+// ── Numeric size (exact value) ──
+
+#[derive(Validate)]
+struct ExactValue {
+    #[validate(size = 42)]
+    answer: i32,
+}
+
+#[test]
+fn test_numeric_size_exact() {
+    let e = ExactValue { answer: 42 };
+    assert!(e.validate().is_ok());
+    let e = ExactValue { answer: 43 };
+    assert!(e.validate().is_err());
+}
+
+// ── Default messages reflect type ──
+
+#[test]
+fn test_numeric_error_message() {
+    let p = Pagination { per_page: 0.0, page: 1.0, offset: None };
+    let err = p.validate().unwrap_err();
+    let msgs = err.messages();
+    // Should say "at least 1" not "at least 1 characters"
+    assert!(msgs["per_page"][0].contains("at least"));
+    assert!(!msgs["per_page"][0].contains("characters"));
+}
+
+#[test]
+fn test_vec_error_message() {
+    let v = VecRules {
+        tags: vec![],
+        coordinates: vec![1.0, 2.0, 3.0],
+    };
+    let err = v.validate().unwrap_err();
+    let msgs = err.messages();
+    assert!(msgs["tags"][0].contains("items"));
+}
