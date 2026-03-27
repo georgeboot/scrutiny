@@ -150,6 +150,24 @@
 //! assert!(c.validate().is_ok());
 //! ```
 //!
+//! ## Restricting Enum Variants
+//!
+//! Use `in_list`/`not_in` with [strum](https://crates.io/crates/strum)'s `AsRefStr`
+//! to restrict which variants are accepted:
+//!
+//! ```rust,ignore
+//! #[derive(Deserialize, strum::AsRefStr)]
+//! enum UserStatus { Active, Inactive, Banned }
+//!
+//! #[derive(Validate, Deserialize)]
+//! struct CreateUser {
+//!     #[validate(in_list("Active", "Inactive"))]
+//!     status: UserStatus,
+//! }
+//! ```
+//!
+//! Works on any type implementing `AsRef<str>`.
+//!
 //! ## Conditional Validation
 //!
 //! ```rust

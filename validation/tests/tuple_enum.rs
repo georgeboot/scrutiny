@@ -170,3 +170,49 @@ fn test_nested_tuple_struct_invalid() {
     let err = u.validate().unwrap_err();
     assert!(err.messages().contains_key("email.0"));
 }
+
+// ── Enum variant validation with strum ──
+
+#[derive(strum::AsRefStr, Debug)]
+enum UserStatus {
+    Active,
+    Inactive,
+    Banned,
+    Suspended,
+}
+
+#[derive(Validate)]
+struct CreateUser2 {
+    #[validate(in_list("Active", "Inactive"))]
+    status: UserStatus,
+}
+
+#[derive(Validate)]
+struct AdminUpdate {
+    #[validate(not_in("Banned"))]
+    status: UserStatus,
+}
+
+#[test]
+fn test_enum_in_list_via_strum_valid() {
+    let u = CreateUser2 { status: UserStatus::Active };
+    assert!(u.validate().is_ok());
+}
+
+#[test]
+fn test_enum_in_list_via_strum_invalid() {
+    let u = CreateUser2 { status: UserStatus::Banned };
+    assert!(u.validate().is_err());
+}
+
+#[test]
+fn test_enum_not_in_via_strum_valid() {
+    let a = AdminUpdate { status: UserStatus::Active };
+    assert!(a.validate().is_ok());
+}
+
+#[test]
+fn test_enum_not_in_via_strum_invalid() {
+    let a = AdminUpdate { status: UserStatus::Banned };
+    assert!(a.validate().is_err());
+}

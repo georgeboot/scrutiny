@@ -166,6 +166,27 @@ enum ContactMethod {
 }
 ```
 
+**Restricting allowed variants** — use `in_list`/`not_in` with [strum](https://crates.io/crates/strum)'s `AsRefStr`:
+
+```rust
+#[derive(Deserialize, strum::AsRefStr)]
+enum UserStatus { Active, Inactive, Banned, Suspended }
+
+#[derive(Validate, Deserialize)]
+struct CreateUser {
+    #[validate(in_list("Active", "Inactive"))]  // rejects Banned, Suspended
+    status: UserStatus,
+}
+
+#[derive(Validate, Deserialize)]
+struct AdminUpdate {
+    #[validate(not_in("Banned"))]  // only rejects Banned
+    status: UserStatus,
+}
+```
+
+This works because `in_list`/`not_in` operate on any type implementing `AsRef<str>`.
+
 Tuple variants work too:
 
 ```rust
