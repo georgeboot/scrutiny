@@ -127,7 +127,7 @@ where
 
         value
             .validate()
-            .map_err(|e| DefaultErrorResponse::from_validation_errors(e))?;
+            .map_err(DefaultErrorResponse::from_validation_errors)?;
 
         Ok(Valid(value))
     }
@@ -195,7 +195,7 @@ where
 
         value
             .validate()
-            .map_err(|e| DefaultErrorResponse::from_validation_errors(e))?;
+            .map_err(DefaultErrorResponse::from_validation_errors)?;
 
         Ok(ValidForm(value))
     }
@@ -221,7 +221,7 @@ where
 
         value
             .validate()
-            .map_err(|e| DefaultErrorResponse::from_validation_errors(e))?;
+            .map_err(DefaultErrorResponse::from_validation_errors)?;
 
         Ok(ValidQuery(value))
     }

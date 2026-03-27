@@ -317,10 +317,10 @@ fn extract_generic_arg(ty: &syn::Type, wrapper: &str) -> Option<syn::Type> {
         if segment.ident != wrapper {
             return None;
         }
-        if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
-            if let Some(syn::GenericArgument::Type(inner)) = args.args.first() {
-                return Some(inner.clone());
-            }
+        if let syn::PathArguments::AngleBracketed(args) = &segment.arguments
+            && let Some(syn::GenericArgument::Type(inner)) = args.args.first()
+        {
+            return Some(inner.clone());
         }
     }
     None

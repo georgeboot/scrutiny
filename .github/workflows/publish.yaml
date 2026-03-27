@@ -1,0 +1,53 @@
+name: Publish to crates.io
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    name: Publish
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@v6
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Set version from tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          for toml in validation-derive/Cargo.toml validation/Cargo.toml validation-axum/Cargo.toml; do
+            sed -i "s/^version = .*/version = \"${VERSION}\"/" "$toml"
+          done
+          # Update path dependencies to use the new version
+          sed -i "s|validation-derive = { path = \"../validation-derive\" }|validation-derive = { path = \"../validation-derive\", version = \"${VERSION}\" }|" validation/Cargo.toml
+          sed -i "s|validation = { path = \"../validation\" }|validation = { path = \"../validation\", version = \"${VERSION}\" }|" validation-axum/Cargo.toml
+
+      - name: Publish validation-derive
+        run: cargo publish -p validation-derive --allow-dirty
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+      - name: Wait for crates.io index
+        run: sleep 30
+
+      - name: Publish validation
+        run: cargo publish -p validation --allow-dirty
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+      - name: Wait for crates.io index
+        run: sleep 30
+
+      - name: Publish validation-axum
+        run: cargo publish -p validation-axum --allow-dirty
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}

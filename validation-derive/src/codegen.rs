@@ -46,17 +46,17 @@ pub fn expand(input: DeriveInput) -> syn::Result<TokenStream> {
 
 /// Check if a type is a known primitive/string type that can be converted to FieldValue.
 fn is_convertible_type(ty: &syn::Type) -> bool {
-    if let syn::Type::Path(type_path) = ty {
-        if let Some(segment) = type_path.path.segments.last() {
-            let name = segment.ident.to_string();
-            return matches!(
-                name.as_str(),
-                "String" | "bool"
-                    | "i8" | "i16" | "i32" | "i64"
-                    | "u8" | "u16" | "u32" | "u64"
-                    | "f32" | "f64"
-            );
-        }
+    if let syn::Type::Path(type_path) = ty
+        && let Some(segment) = type_path.path.segments.last()
+    {
+        let name = segment.ident.to_string();
+        return matches!(
+            name.as_str(),
+            "String" | "bool"
+                | "i8" | "i16" | "i32" | "i64"
+                | "u8" | "u16" | "u32" | "u64"
+                | "f32" | "f64"
+        );
     }
     false
 }
