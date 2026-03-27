@@ -123,6 +123,60 @@ struct Query {
 }
 ```
 
+### Tuple Structs
+
+Newtypes get validation for free — encode your invariants in the type system:
+
+```rust
+#[derive(Validate)]
+struct Email(#[validate(email)] String);
+
+#[derive(Validate)]
+struct Score(#[validate(min = 0, max = 100)] i32);
+```
+
+Use them in other structs with `#[validate(nested)]`:
+
+```rust
+#[derive(Validate)]
+struct UserProfile {
+    #[validate(required)]
+    name: Option<String>,
+    #[validate(nested)]
+    email: Email,
+}
+```
+
+### Enums
+
+Validate fields per variant. Unit variants always pass.
+
+```rust
+#[derive(Validate)]
+enum ContactMethod {
+    Email {
+        #[validate(required, email)]
+        address: Option<String>,
+    },
+    Phone {
+        #[validate(required, min = 5)]
+        number: Option<String>,
+    },
+    None,
+}
+```
+
+Tuple variants work too:
+
+```rust
+#[derive(Validate)]
+enum Wrapper {
+    Text(#[validate(required, min = 1)] Option<String>),
+    Number(#[validate(min = 0, max = 999)] i32),
+    Empty,
+}
+```
+
 ### Conditional Validation
 
 ```rust

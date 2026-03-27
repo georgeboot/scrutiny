@@ -104,6 +104,52 @@
 //! assert!(err.messages().contains_key("address.city"));
 //! ```
 //!
+//! ## Tuple Structs
+//!
+//! Newtypes get validation for free — encode your invariants in the type system:
+//!
+//! ```rust
+//! use validation::Validate;
+//! use validation::traits::Validate as _;
+//!
+//! #[derive(Validate)]
+//! struct Email(#[validate(email)] String);
+//!
+//! #[derive(Validate)]
+//! struct Score(#[validate(min = 0, max = 100)] i32);
+//!
+//! assert!(Email("user@example.com".into()).validate().is_ok());
+//! assert!(Score(101).validate().is_err());
+//! ```
+//!
+//! ## Enums
+//!
+//! Validate fields per variant. Unit variants always pass.
+//!
+//! ```rust
+//! use validation::Validate;
+//! use validation::traits::Validate as _;
+//!
+//! #[derive(Validate)]
+//! enum ContactMethod {
+//!     Email {
+//!         #[validate(required, email)]
+//!         address: Option<String>,
+//!     },
+//!     Phone {
+//!         #[validate(required, min = 5)]
+//!         number: Option<String>,
+//!     },
+//!     None,
+//! }
+//!
+//! let c = ContactMethod::Email { address: Some("bad".into()) };
+//! assert!(c.validate().is_err());
+//!
+//! let c = ContactMethod::None;
+//! assert!(c.validate().is_ok());
+//! ```
+//!
 //! ## Conditional Validation
 //!
 //! ```rust
