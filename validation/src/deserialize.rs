@@ -2,7 +2,7 @@
 //!
 //! These functions deserialize JSON into a struct using `serde_path_to_error`,
 //! then run validation. Deserialization errors are converted to field-level
-//! [`ValidationErrors`](crate::error::ValidationErrors) — so a `uuid::Uuid` field
+//! [`ValidationErrors`] — so a `uuid::Uuid` field
 //! that receives `"not-a-uuid"` produces `{"id": ["expected UUID"]}` instead of
 //! a generic parse error.
 //!
