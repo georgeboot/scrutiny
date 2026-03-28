@@ -12,7 +12,7 @@
 //! | [`Valid<T>`] | `Json<T>` | JSON body with validation |
 //! | [`ValidWith<T, E>`] | `Json<T>` | JSON body with custom error response |
 //! | [`ValidForm<T>`] | `Form<T>` | Form-encoded body with validation |
-//! | [`ValidQuery<T>`] | `Query<T>` | Query parameters with validation |
+//! | [`ValidQuery<T>`] | axum-extra's `Query<T>` | Query parameters with validation (uses `serde_html_form`) |
 //!
 //! # Quick Start
 //!
@@ -119,25 +119,15 @@ impl ValidationErrorResponse for DefaultErrorResponse {
     }
 }
 
-/// Convert a serde_path_to_error path string to a field name.
-fn path_to_field_name(path: String) -> String {
-    if path.is_empty() || path == "." {
-        "_query".to_string()
-    } else {
-        path.strip_prefix('.').unwrap_or(&path).to_string()
-    }
-}
-
-/// Deserialize a query/form string using `serde_path_to_error` and convert any
-/// deserialization error into a field-level `ValidationErrors`.
+/// Deserialize a query/form string using `serde_html_form` (same parser as
+/// axum-extra's `Query`) wrapped with `serde_path_to_error` for field-level errors.
+///
+/// Supports repeated params (`?tag=a&tag=b` → `Vec`), bracket notation
+/// (`?user[name]=Jo`), and other formats that basic `serde_urlencoded` doesn't.
 fn deserialize_query<T: serde::de::DeserializeOwned>(query: &str) -> Result<T, ValidationErrors> {
-    let deserializer = serde_urlencoded::Deserializer::new(form_urlencoded::parse(query.as_bytes()));
-    serde_path_to_error::deserialize(deserializer).map_err(|err| {
+    serde_html_form::from_str::<T>(query).map_err(|err| {
         let mut errors = ValidationErrors::new();
-        let path = err.path().to_string();
-        let field = path_to_field_name(path);
-        let message = err.inner().to_string();
-        errors.add(&field, ValidationError::new("deserialization", message));
+        errors.add("_query", ValidationError::new("deserialization", err.to_string()));
         errors
     })
 }
@@ -235,6 +225,8 @@ where
 // ── ValidForm<T> — form data extraction + validation ──
 
 /// Extracts and validates form-encoded body.
+///
+/// Uses `serde_html_form` for deserialization (same parser as axum-extra).
 pub struct ValidForm<T>(pub T);
 
 impl<T, S> FromRequest<S> for ValidForm<T>
@@ -273,6 +265,16 @@ where
 // ── ValidQuery<T> — query parameter extraction + validation ──
 
 /// Extracts and validates query parameters.
+///
+/// Uses `serde_html_form` for deserialization (same parser as axum-extra's `Query`),
+/// which supports repeated params (`?tag=a&tag=b` → `Vec<String>`) and bracket
+/// notation (`?user[name]=Jo`).
+///
+/// **Note for users coming from plain axum**: this uses a more capable query string
+/// parser than axum's built-in `Query` extractor (which uses `serde_urlencoded`).
+/// The behavior is the same as axum-extra's `Query`. This means some edge cases in
+/// query string parsing may behave differently from what you're used to with
+/// `axum::extract::Query`.
 pub struct ValidQuery<T>(pub T);
 
 impl<T, S> FromRequest<S> for ValidQuery<T>
