@@ -48,6 +48,29 @@
 //! }
 //! ```
 //!
+//! # Replaces `WithRejection` from axum-extra
+//!
+//! These extractors are standalone replacements for the common
+//! `WithRejection<Json<T>, AppError>` pattern from `axum-extra`. You don't need
+//! `axum-extra` or `WithRejection` — our extractors handle deserialization,
+//! validation, and error responses in one step.
+//!
+//! ```rust,ignore
+//! // Before (axum-extra):
+//! use axum_extra::extract::WithRejection;
+//! async fn handler(
+//!     WithRejection(Json(body), _): WithRejection<Json<CreateUser>, AppError>,
+//! ) -> Result<impl IntoResponse> { ... }
+//!
+//! // After (validation-axum):
+//! use validation_axum::Valid;
+//! async fn handler(Valid(body): Valid<CreateUser>) -> impl IntoResponse { ... }
+//!
+//! // With custom error format (replaces AppError):
+//! use validation_axum::ValidWith;
+//! async fn handler(r: ValidWith<CreateUser, MyApiError>) -> impl IntoResponse { ... }
+//! ```
+//!
 //! # Custom Error Responses
 //!
 //! Implement [`ValidationErrorResponse`] to control the HTTP response format:

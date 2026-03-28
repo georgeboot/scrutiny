@@ -285,7 +285,21 @@ match from_json::<CreateUser>(body_bytes) {
 
 ### Axum Integration
 
-Drop-in replacement for `axum::Json<T>` that validates before your handler runs:
+Drop-in replacement for `axum::Json<T>` — and for `axum_extra::extract::WithRejection`. You don't need `axum-extra` for error customization; our extractors handle deserialization, validation, and error responses in one step.
+
+```rust
+// Before (axum + axum-extra):
+use axum_extra::extract::WithRejection;
+async fn handler(
+    WithRejection(Json(body), _): WithRejection<Json<CreateUser>, AppError>,
+) -> Result<impl IntoResponse> { ... }
+
+// After (validation-axum):
+use validation_axum::Valid;
+async fn handler(Valid(body): Valid<CreateUser>) -> impl IntoResponse { ... }
+```
+
+Validates before your handler runs:
 
 ```rust
 use validation_axum::Valid;
