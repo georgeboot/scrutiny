@@ -225,6 +225,27 @@
 //! ### Structural
 //! `nested` (alias: `dive`), `custom`
 //!
+//! ## Typed Fields & Deserialization Errors
+//!
+//! Use actual types like `uuid::Uuid` or `chrono::NaiveDate` instead of validating
+//! strings manually. Deserialization errors become field-level validation errors
+//! automatically.
+//!
+//! **Axum users** — `Valid<T>` handles this out of the box. Just use typed fields.
+//!
+//! **Everyone else** — use [`deserialize::from_json`] to get unified errors:
+//!
+//! ```rust,ignore
+//! use validation::deserialize::from_json;
+//!
+//! // id: uuid::Uuid — if "not-a-uuid" is sent, you get:
+//! // {"id": ["invalid type: expected UUID"]}
+//! match from_json::<CreateUser>(body_bytes) {
+//!     Ok(user) => { /* deserialized AND validated */ }
+//!     Err(errors) => { /* same ValidationErrors type for both */ }
+//! }
+//! ```
+//!
 //! ## Error Serialization
 //!
 //! With the `serde` feature (default), `ValidationErrors` serializes to:
@@ -238,6 +259,8 @@
 
 pub use validation_derive::Validate;
 
+#[cfg(all(feature = "serde_json", feature = "serde_path_to_error"))]
+pub mod deserialize;
 pub mod error;
 pub mod rules;
 pub mod traits;

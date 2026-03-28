@@ -70,6 +70,7 @@ use axum::extract::{FromRequest, Request};
 use axum::response::{IntoResponse, Response};
 use http::StatusCode;
 use std::marker::PhantomData;
+use validation::deserialize::deserialize_json;
 use validation::error::{ValidationError, ValidationErrors};
 use validation::traits::Validate;
 
@@ -96,29 +97,12 @@ impl ValidationErrorResponse for DefaultErrorResponse {
 }
 
 /// Convert a serde_path_to_error path string to a field name.
-/// Top-level errors (empty path or ".") map to "_body".
 fn path_to_field_name(path: String) -> String {
     if path.is_empty() || path == "." {
-        "_body".to_string()
+        "_query".to_string()
     } else {
-        // Convert serde_path_to_error's dot notation to our field names
-        // e.g. "address.city" stays as-is, ".foo" becomes "foo"
         path.strip_prefix('.').unwrap_or(&path).to_string()
     }
-}
-
-/// Deserialize JSON bytes using `serde_path_to_error` and convert any
-/// deserialization error into a field-level `ValidationErrors`.
-fn deserialize_json<T: serde::de::DeserializeOwned>(body: &[u8]) -> Result<T, ValidationErrors> {
-    let deserializer = &mut serde_json::Deserializer::from_slice(body);
-    serde_path_to_error::deserialize(deserializer).map_err(|err| {
-        let mut errors = ValidationErrors::new();
-        let path = err.path().to_string();
-        let field = path_to_field_name(path);
-        let message = err.inner().to_string();
-        errors.add(&field, ValidationError::new("deserialization", message));
-        errors
-    })
 }
 
 /// Deserialize a query/form string using `serde_path_to_error` and convert any

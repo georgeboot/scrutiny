@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-validation = { path = "../validation" }
+validation = { path = "../validation", features = ["serde", "serde_json", "serde_path_to_error"] }
 axum = "0.8"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

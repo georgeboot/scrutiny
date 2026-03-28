@@ -244,6 +244,45 @@ struct Team {
 // Errors: "address.city", "members.0.email", "members.2.name"
 ```
 
+### Typed Fields
+
+Use actual types instead of validating strings — deserialization errors become field-level validation errors automatically:
+
+```rust
+#[derive(Validate, Deserialize)]
+struct CreateUser {
+    #[validate(required, min = 2)]
+    name: Option<String>,
+    id: uuid::Uuid,              // no #[validate(uuid)] needed
+    created: chrono::NaiveDate,  // no #[validate(date)] needed
+}
+```
+
+If someone sends `{"name": null, "id": "not-a-uuid", "created": "bad"}`:
+
+```json
+{
+  "errors": {
+    "name": ["The name field is required."],
+    "id": ["invalid type: string \"not-a-uuid\", expected UUID"],
+    "created": ["premature end of input"]
+  }
+}
+```
+
+**Axum users**: `Valid<T>` handles this out of the box.
+
+**Everyone else**: use `validation::deserialize::from_json` to get the same unified errors:
+
+```rust
+use validation::deserialize::from_json;
+
+match from_json::<CreateUser>(body_bytes) {
+    Ok(user) => { /* deserialized AND validated */ }
+    Err(errors) => { /* same ValidationErrors for both deser and validation */ }
+}
+```
+
 ### Axum Integration
 
 Drop-in replacement for `axum::Json<T>` that validates before your handler runs:

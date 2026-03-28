@@ -15,15 +15,16 @@ ulid = { version = "1", optional = true }
 chrono = { version = "0.4", default-features = false, features = ["alloc"], optional = true }
 chrono-tz = { version = "0.10", optional = true }
 
-# Optional: serialization
+# Optional: serialization and deserialization helpers
 serde = { version = "1", features = ["derive"], optional = true }
 serde_json = { version = "1", optional = true }
+serde_path_to_error = { version = "0.1", optional = true }
 
 [dev-dependencies]
 strum = { version = "0.27", features = ["derive"] }
 
 [features]
-default = ["regex", "email", "url-parse", "uuid-parse", "chrono", "serde", "serde_json"]
+default = ["regex", "email", "url-parse", "uuid-parse", "chrono", "serde", "serde_json", "serde_path_to_error"]
 full = ["default", "ulid-parse", "timezone"]
 
 # Individual rule features
