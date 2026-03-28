@@ -88,7 +88,8 @@ async fn test_deserialization_error_returns_422() {
     assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
 
     let json = body_to_json(response).await;
-    assert!(json["errors"]["_deserialization"].is_array());
+    // Top-level deserialization errors land on "_body"
+    assert!(json["errors"]["_body"].is_array());
 }
 
 // --- Custom error response ---
@@ -105,14 +106,6 @@ impl ValidationErrorResponse for CustomApiError {
         (StatusCode::BAD_REQUEST, Json(body)).into_response()
     }
 
-    fn from_deserialization_error(error: String) -> axum::response::Response {
-        let body = serde_json::json!({
-            "success": false,
-            "code": "INVALID_PAYLOAD",
-            "message": error,
-        });
-        (StatusCode::BAD_REQUEST, Json(body)).into_response()
-    }
 }
 
 async fn custom_handler(result: ValidWith<CreateUser, CustomApiError>) -> impl IntoResponse {
@@ -136,4 +129,61 @@ async fn test_custom_error_response() {
     assert_eq!(json["success"], false);
     assert_eq!(json["code"], "VALIDATION_FAILED");
     assert!(json["details"].is_object());
+}
+
+// --- Typed field deserialization errors become field-level validation errors ---
+
+#[derive(Validate, Deserialize)]
+struct TypedRequest {
+    #[validate(required)]
+    name: Option<String>,
+    id: u64,
+}
+
+async fn typed_handler(Valid(req): Valid<TypedRequest>) -> impl IntoResponse {
+    Json(serde_json::json!({ "id": req.id }))
+}
+
+#[tokio::test]
+async fn test_typed_field_deser_error_is_field_level() {
+    let app = Router::new().route("/typed", post(typed_handler));
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/typed")
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(r#"{"name": "John", "id": "not-a-number"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
+    let json = body_to_json(response).await;
+    // The error should be on the "id" field, not a generic deserialization error
+    assert!(json["errors"]["id"].is_array(), "expected field-level error on 'id', got: {json}");
+    let id_errors = json["errors"]["id"].as_array().unwrap();
+    assert_eq!(id_errors.len(), 1);
+}
+
+#[tokio::test]
+async fn test_typed_field_valid_request_passes() {
+    let app = Router::new().route("/typed", post(typed_handler));
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/typed")
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(r#"{"name": "John", "id": 42}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
 }
