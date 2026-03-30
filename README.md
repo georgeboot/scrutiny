@@ -1,5 +1,10 @@
 # scrutiny
 
+[![Crates.io](https://img.shields.io/crates/v/scrutiny)](https://crates.io/crates/scrutiny)
+[![docs.rs](https://docs.rs/scrutiny/badge.svg)](https://docs.rs/scrutiny)
+[![CI](https://github.com/georgeboot/scrutiny/actions/workflows/ci.yaml/badge.svg)](https://github.com/georgeboot/scrutiny/actions/workflows/ci.yaml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 A powerful, Laravel-inspired validation library for Rust. Brings Laravel's validation DX to the Rust ecosystem using derive macros and the type system — no runtime string parsing.
 
 **Correct by default.** Format rules delegate to dedicated, standards-compliant parsing crates — not hand-rolled regexes. Email is validated per RFC 5321, URLs per the WHATWG URL Standard, UUIDs per RFC 4122, dates per ISO 8601, and IP addresses via Rust's stdlib. Where a standard exists, we follow it.
