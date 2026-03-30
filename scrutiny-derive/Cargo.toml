@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 description = "Derive macro for the scrutiny validation library"
 license = "MIT"
-repository = "https://github.com/georizon/scrutiny"
+repository = "https://github.com/georgeboot/scrutiny"
 keywords = ["validation", "validate", "derive", "macro"]
 categories = ["web-programming"]
 

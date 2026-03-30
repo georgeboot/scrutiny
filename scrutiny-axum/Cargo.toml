@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 description = "Axum extractors for the scrutiny validation library — Valid<T>, ValidQuery<T>, ValidForm<T> with customizable error responses"
 license = "MIT"
-repository = "https://github.com/georizon/scrutiny"
+repository = "https://github.com/georgeboot/scrutiny"
 keywords = ["validation", "axum", "extractor", "form", "web"]
 categories = ["web-programming::http-server"]
 
