@@ -2,6 +2,11 @@
 name = "scrutiny"
 version = "0.1.0"
 edition = "2024"
+description = "A powerful, standards-compliant validation library for Rust with 50+ rules, conditional logic, and first-class axum integration"
+license = "MIT"
+repository = "https://github.com/georizon/scrutiny"
+keywords = ["validation", "validate", "derive", "serde", "form"]
+categories = ["web-programming", "data-structures"]
 
 [dependencies]
 scrutiny-derive = { path = "../scrutiny-derive" }
