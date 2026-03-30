@@ -37,13 +37,13 @@ fn expand_struct(
         Fields::Unit => {
             // Unit struct: always valid
             Ok(quote! {
-                impl ::validation::traits::FieldAccess for #name {
-                    fn get_field_value(&self, _field_name: &str) -> ::validation::value::FieldValue {
-                        ::validation::value::FieldValue::None
+                impl ::scrutiny::traits::FieldAccess for #name {
+                    fn get_field_value(&self, _field_name: &str) -> ::scrutiny::value::FieldValue {
+                        ::scrutiny::value::FieldValue::None
                     }
                 }
-                impl ::validation::traits::Validate for #name {
-                    fn validate(&self) -> ::std::result::Result<(), ::validation::error::ValidationErrors> {
+                impl ::scrutiny::traits::Validate for #name {
+                    fn validate(&self) -> ::std::result::Result<(), ::scrutiny::error::ValidationErrors> {
                         ::std::result::Result::Ok(())
                     }
                 }
@@ -80,9 +80,9 @@ fn expand_tuple_struct(
             let name_str = &f.name;
             let inner_ty = f.inner_type.as_ref().unwrap_or(&f.ty);
             if is_convertible_type(inner_ty) {
-                quote! { #name_str => ::validation::value::FieldValue::from(&self.#idx), }
+                quote! { #name_str => ::scrutiny::value::FieldValue::from(&self.#idx), }
             } else {
-                quote! { #name_str => ::validation::value::FieldValue::None, }
+                quote! { #name_str => ::scrutiny::value::FieldValue::None, }
             }
         })
         .collect();
@@ -122,17 +122,17 @@ fn expand_tuple_struct(
     }
 
     Ok(quote! {
-        impl ::validation::traits::FieldAccess for #name {
-            fn get_field_value(&self, field_name: &str) -> ::validation::value::FieldValue {
+        impl ::scrutiny::traits::FieldAccess for #name {
+            fn get_field_value(&self, field_name: &str) -> ::scrutiny::value::FieldValue {
                 match field_name {
                     #(#access_arms)*
-                    _ => ::validation::value::FieldValue::None,
+                    _ => ::scrutiny::value::FieldValue::None,
                 }
             }
         }
-        impl ::validation::traits::Validate for #name {
-            fn validate(&self) -> ::std::result::Result<(), ::validation::error::ValidationErrors> {
-                let mut errors = ::validation::error::ValidationErrors::new();
+        impl ::scrutiny::traits::Validate for #name {
+            fn validate(&self) -> ::std::result::Result<(), ::scrutiny::error::ValidationErrors> {
+                let mut errors = ::scrutiny::error::ValidationErrors::new();
                 #(#bindings)*
                 #(#checks)*
                 if errors.is_empty() {
@@ -278,14 +278,14 @@ fn expand_enum(
     }
 
     Ok(quote! {
-        impl ::validation::traits::FieldAccess for #name {
-            fn get_field_value(&self, _field_name: &str) -> ::validation::value::FieldValue {
-                ::validation::value::FieldValue::None
+        impl ::scrutiny::traits::FieldAccess for #name {
+            fn get_field_value(&self, _field_name: &str) -> ::scrutiny::value::FieldValue {
+                ::scrutiny::value::FieldValue::None
             }
         }
-        impl ::validation::traits::Validate for #name {
-            fn validate(&self) -> ::std::result::Result<(), ::validation::error::ValidationErrors> {
-                let mut errors = ::validation::error::ValidationErrors::new();
+        impl ::scrutiny::traits::Validate for #name {
+            fn validate(&self) -> ::std::result::Result<(), ::scrutiny::error::ValidationErrors> {
+                let mut errors = ::scrutiny::error::ValidationErrors::new();
                 match self {
                     #(#variant_arms)*
                 }
@@ -385,23 +385,23 @@ fn gen_field_access(struct_name: &syn::Ident, fields: &[FieldInfo]) -> TokenStre
             if convertible {
                 // Known type: use From impl
                 quote! {
-                    #name_str => ::validation::value::FieldValue::from(&self.#field_ident),
+                    #name_str => ::scrutiny::value::FieldValue::from(&self.#field_ident),
                 }
             } else {
                 // Unknown type (struct, etc.): return None
                 quote! {
-                    #name_str => ::validation::value::FieldValue::None,
+                    #name_str => ::scrutiny::value::FieldValue::None,
                 }
             }
         })
         .collect();
 
     quote! {
-        impl ::validation::traits::FieldAccess for #struct_name {
-            fn get_field_value(&self, field_name: &str) -> ::validation::value::FieldValue {
+        impl ::scrutiny::traits::FieldAccess for #struct_name {
+            fn get_field_value(&self, field_name: &str) -> ::scrutiny::value::FieldValue {
                 match field_name {
                     #(#match_arms)*
-                    _ => ::validation::value::FieldValue::None,
+                    _ => ::scrutiny::value::FieldValue::None,
                 }
             }
         }
@@ -425,9 +425,9 @@ fn gen_validate(
     }
 
     Ok(quote! {
-        impl ::validation::traits::Validate for #struct_name {
-            fn validate(&self) -> ::std::result::Result<(), ::validation::error::ValidationErrors> {
-                let mut errors = ::validation::error::ValidationErrors::new();
+        impl ::scrutiny::traits::Validate for #struct_name {
+            fn validate(&self) -> ::std::result::Result<(), ::scrutiny::error::ValidationErrors> {
+                let mut errors = ::scrutiny::error::ValidationErrors::new();
 
                 #(#field_validations)*
 
@@ -558,16 +558,16 @@ fn gen_rule_check(
             });
             if field.is_option {
                 Ok(quote! {
-                    if !::validation::rules::presence::is_present_option(&self.#field_ident) {
-                        errors.add(#field_name, ::validation::error::ValidationError::new("required", #msg));
+                    if !::scrutiny::rules::presence::is_present_option(&self.#field_ident) {
+                        errors.add(#field_name, ::scrutiny::error::ValidationError::new("required", #msg));
                         #bail_break
                     }
                 })
             } else {
                 // Non-option required: check if string is empty, etc.
                 Ok(quote! {
-                    if !::validation::rules::presence::Presentable::is_present(&self.#field_ident) {
-                        errors.add(#field_name, ::validation::error::ValidationError::new("required", #msg));
+                    if !::scrutiny::rules::presence::Presentable::is_present(&self.#field_ident) {
+                        errors.add(#field_name, ::scrutiny::error::ValidationError::new("required", #msg));
                         #bail_break
                     }
                 })
@@ -579,7 +579,7 @@ fn gen_rule_check(
                 format!("The {} field must be a valid email address.", display_name)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "email", has_bail,
-                quote! { ::validation::rules::format::is_email(val) })
+                quote! { ::scrutiny::rules::format::is_email(val) })
         }
 
         "url" => {
@@ -587,7 +587,7 @@ fn gen_rule_check(
                 format!("The {} field must be a valid URL.", display_name)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "url", has_bail,
-                quote! { ::validation::rules::format::is_url(val) })
+                quote! { ::scrutiny::rules::format::is_url(val) })
         }
 
         "alpha" => {
@@ -595,7 +595,7 @@ fn gen_rule_check(
                 format!("The {} field must only contain letters.", display_name)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "alpha", has_bail,
-                quote! { ::validation::rules::string::is_alpha(val) })
+                quote! { ::scrutiny::rules::string::is_alpha(val) })
         }
 
         "alpha_num" => {
@@ -603,7 +603,7 @@ fn gen_rule_check(
                 format!("The {} field must only contain letters and numbers.", display_name)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "alpha_num", has_bail,
-                quote! { ::validation::rules::string::is_alpha_num(val) })
+                quote! { ::scrutiny::rules::string::is_alpha_num(val) })
         }
 
         "alpha_dash" => {
@@ -611,7 +611,7 @@ fn gen_rule_check(
                 format!("The {} field must only contain letters, numbers, dashes, and underscores.", display_name)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "alpha_dash", has_bail,
-                quote! { ::validation::rules::string::is_alpha_dash(val) })
+                quote! { ::scrutiny::rules::string::is_alpha_dash(val) })
         }
 
         "numeric" => {
@@ -619,7 +619,7 @@ fn gen_rule_check(
                 format!("The {} field must be a number.", display_name)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "numeric", has_bail,
-                quote! { ::validation::rules::string::is_numeric(val) })
+                quote! { ::scrutiny::rules::string::is_numeric(val) })
         }
 
         "ascii" => {
@@ -627,7 +627,7 @@ fn gen_rule_check(
                 format!("The {} field must only contain ASCII characters.", display_name)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "ascii", has_bail,
-                quote! { ::validation::rules::format::is_ascii(val) })
+                quote! { ::scrutiny::rules::format::is_ascii(val) })
         }
 
         "uuid" => {
@@ -635,7 +635,7 @@ fn gen_rule_check(
                 format!("The {} field must be a valid UUID.", display_name)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "uuid", has_bail,
-                quote! { ::validation::rules::format::is_uuid(val) })
+                quote! { ::scrutiny::rules::format::is_uuid(val) })
         }
 
         "ulid" => {
@@ -643,7 +643,7 @@ fn gen_rule_check(
                 format!("The {} field must be a valid ULID.", display_name)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "ulid", has_bail,
-                quote! { ::validation::rules::format::is_ulid(val) })
+                quote! { ::scrutiny::rules::format::is_ulid(val) })
         }
 
         "ip" => {
@@ -651,7 +651,7 @@ fn gen_rule_check(
                 format!("The {} field must be a valid IP address.", display_name)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "ip", has_bail,
-                quote! { ::validation::rules::format::is_ip(val) })
+                quote! { ::scrutiny::rules::format::is_ip(val) })
         }
 
         "ipv4" => {
@@ -659,7 +659,7 @@ fn gen_rule_check(
                 format!("The {} field must be a valid IPv4 address.", display_name)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "ipv4", has_bail,
-                quote! { ::validation::rules::format::is_ipv4(val) })
+                quote! { ::scrutiny::rules::format::is_ipv4(val) })
         }
 
         "ipv6" => {
@@ -667,7 +667,7 @@ fn gen_rule_check(
                 format!("The {} field must be a valid IPv6 address.", display_name)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "ipv6", has_bail,
-                quote! { ::validation::rules::format::is_ipv6(val) })
+                quote! { ::scrutiny::rules::format::is_ipv6(val) })
         }
 
         "json" => {
@@ -675,7 +675,7 @@ fn gen_rule_check(
                 format!("The {} field must be valid JSON.", display_name)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "json", has_bail,
-                quote! { ::validation::rules::format::is_json(val) })
+                quote! { ::scrutiny::rules::format::is_json(val) })
         }
 
         "mac_address" => {
@@ -683,7 +683,7 @@ fn gen_rule_check(
                 format!("The {} field must be a valid MAC address.", display_name)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "mac_address", has_bail,
-                quote! { ::validation::rules::format::is_mac_address(val) })
+                quote! { ::scrutiny::rules::format::is_mac_address(val) })
         }
 
         "min" => {
@@ -711,7 +711,7 @@ fn gen_rule_check(
                     });
                     let min_val: usize = value_str.parse().map_err(|_| syn::Error::new(rule.span, "min must be a number"))?;
                     gen_string_rule_check(field, &field_ident, field_name, &msg, "min", has_bail,
-                        quote! { ::validation::rules::string::check_min_length(val, #min_val) })
+                        quote! { ::scrutiny::rules::string::check_min_length(val, #min_val) })
                 }
             }
         }
@@ -741,7 +741,7 @@ fn gen_rule_check(
                     });
                     let max_val: usize = value_str.parse().map_err(|_| syn::Error::new(rule.span, "max must be a number"))?;
                     gen_string_rule_check(field, &field_ident, field_name, &msg, "max", has_bail,
-                        quote! { ::validation::rules::string::check_max_length(val, #max_val) })
+                        quote! { ::scrutiny::rules::string::check_max_length(val, #max_val) })
                 }
             }
         }
@@ -785,7 +785,7 @@ fn gen_rule_check(
                     let min_val: usize = min_str.parse().map_err(|_| syn::Error::new(rule.span, "between min must be integer"))?;
                     let max_val: usize = max_str.parse().map_err(|_| syn::Error::new(rule.span, "between max must be integer"))?;
                     gen_string_rule_check(field, &field_ident, field_name, &msg, "between", has_bail,
-                        quote! { ::validation::rules::string::check_between_length(val, #min_val, #max_val) })
+                        quote! { ::scrutiny::rules::string::check_between_length(val, #min_val, #max_val) })
                 }
             }
         }
@@ -804,7 +804,7 @@ fn gen_rule_check(
                 format!("The {} format is invalid.", display_name)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "regex", has_bail,
-                quote! { ::validation::rules::format::matches_regex(val, #pattern) })
+                quote! { ::scrutiny::rules::format::matches_regex(val, #pattern) })
         }
 
         "in_list" => {
@@ -816,7 +816,7 @@ fn gen_rule_check(
                 format!("The selected {} is invalid.", display_name)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "in_list", has_bail,
-                quote! { ::validation::rules::comparison::is_in(val, &[#(#items),*]) })
+                quote! { ::scrutiny::rules::comparison::is_in(val, &[#(#items),*]) })
         }
 
         "not_in" => {
@@ -828,7 +828,7 @@ fn gen_rule_check(
                 format!("The selected {} is invalid.", display_name)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "not_in", has_bail,
-                quote! { ::validation::rules::comparison::is_not_in(val, &[#(#items),*]) })
+                quote! { ::scrutiny::rules::comparison::is_not_in(val, &[#(#items),*]) })
         }
 
         "confirmed" => {
@@ -838,10 +838,10 @@ fn gen_rule_check(
             });
             Ok(quote! {
                 {
-                    let a = ::validation::traits::FieldAccess::get_field_value(self, #field_name);
-                    let b = ::validation::traits::FieldAccess::get_field_value(self, #confirmation_field);
-                    if !::validation::rules::comparison::is_same(&a, &b) {
-                        errors.add(#field_name, ::validation::error::ValidationError::new("confirmed", #msg));
+                    let a = ::scrutiny::traits::FieldAccess::get_field_value(self, #field_name);
+                    let b = ::scrutiny::traits::FieldAccess::get_field_value(self, #confirmation_field);
+                    if !::scrutiny::rules::comparison::is_same(&a, &b) {
+                        errors.add(#field_name, ::scrutiny::error::ValidationError::new("confirmed", #msg));
                         #bail_break
                     }
                 }
@@ -859,10 +859,10 @@ fn gen_rule_check(
             });
             Ok(quote! {
                 {
-                    let a = ::validation::traits::FieldAccess::get_field_value(self, #field_name);
-                    let b = ::validation::traits::FieldAccess::get_field_value(self, #other);
-                    if !::validation::rules::comparison::is_same(&a, &b) {
-                        errors.add(#field_name, ::validation::error::ValidationError::new("same", #msg));
+                    let a = ::scrutiny::traits::FieldAccess::get_field_value(self, #field_name);
+                    let b = ::scrutiny::traits::FieldAccess::get_field_value(self, #other);
+                    if !::scrutiny::rules::comparison::is_same(&a, &b) {
+                        errors.add(#field_name, ::scrutiny::error::ValidationError::new("same", #msg));
                         #bail_break
                     }
                 }
@@ -880,10 +880,10 @@ fn gen_rule_check(
             });
             Ok(quote! {
                 {
-                    let a = ::validation::traits::FieldAccess::get_field_value(self, #field_name);
-                    let b = ::validation::traits::FieldAccess::get_field_value(self, #other);
-                    if !::validation::rules::comparison::is_different(&a, &b) {
-                        errors.add(#field_name, ::validation::error::ValidationError::new("different", #msg));
+                    let a = ::scrutiny::traits::FieldAccess::get_field_value(self, #field_name);
+                    let b = ::scrutiny::traits::FieldAccess::get_field_value(self, #other);
+                    if !::scrutiny::rules::comparison::is_different(&a, &b) {
+                        errors.add(#field_name, ::scrutiny::error::ValidationError::new("different", #msg));
                         #bail_break
                     }
                 }
@@ -907,10 +907,10 @@ fn gen_rule_check(
             if field.is_option {
                 Ok(quote! {
                     {
-                        let other = ::validation::traits::FieldAccess::get_field_value(self, #cond_field);
-                        if other == ::validation::value::FieldValue::String(#cond_value.to_string()) {
-                            if !::validation::rules::presence::is_present_option(&self.#field_ident) {
-                                errors.add(#field_name, ::validation::error::ValidationError::new("required_if", #msg));
+                        let other = ::scrutiny::traits::FieldAccess::get_field_value(self, #cond_field);
+                        if other == ::scrutiny::value::FieldValue::String(#cond_value.to_string()) {
+                            if !::scrutiny::rules::presence::is_present_option(&self.#field_ident) {
+                                errors.add(#field_name, ::scrutiny::error::ValidationError::new("required_if", #msg));
                                 #bail_break
                             }
                         }
@@ -919,10 +919,10 @@ fn gen_rule_check(
             } else {
                 Ok(quote! {
                     {
-                        let other = ::validation::traits::FieldAccess::get_field_value(self, #cond_field);
-                        if other == ::validation::value::FieldValue::String(#cond_value.to_string()) {
-                            if !::validation::rules::presence::Presentable::is_present(&self.#field_ident) {
-                                errors.add(#field_name, ::validation::error::ValidationError::new("required_if", #msg));
+                        let other = ::scrutiny::traits::FieldAccess::get_field_value(self, #cond_field);
+                        if other == ::scrutiny::value::FieldValue::String(#cond_value.to_string()) {
+                            if !::scrutiny::rules::presence::Presentable::is_present(&self.#field_ident) {
+                                errors.add(#field_name, ::scrutiny::error::ValidationError::new("required_if", #msg));
                                 #bail_break
                             }
                         }
@@ -948,10 +948,10 @@ fn gen_rule_check(
             if field.is_option {
                 Ok(quote! {
                     {
-                        let other = ::validation::traits::FieldAccess::get_field_value(self, #cond_field);
-                        if other != ::validation::value::FieldValue::String(#cond_value.to_string()) {
-                            if !::validation::rules::presence::is_present_option(&self.#field_ident) {
-                                errors.add(#field_name, ::validation::error::ValidationError::new("required_unless", #msg));
+                        let other = ::scrutiny::traits::FieldAccess::get_field_value(self, #cond_field);
+                        if other != ::scrutiny::value::FieldValue::String(#cond_value.to_string()) {
+                            if !::scrutiny::rules::presence::is_present_option(&self.#field_ident) {
+                                errors.add(#field_name, ::scrutiny::error::ValidationError::new("required_unless", #msg));
                                 #bail_break
                             }
                         }
@@ -960,10 +960,10 @@ fn gen_rule_check(
             } else {
                 Ok(quote! {
                     {
-                        let other = ::validation::traits::FieldAccess::get_field_value(self, #cond_field);
-                        if other != ::validation::value::FieldValue::String(#cond_value.to_string()) {
-                            if !::validation::rules::presence::Presentable::is_present(&self.#field_ident) {
-                                errors.add(#field_name, ::validation::error::ValidationError::new("required_unless", #msg));
+                        let other = ::scrutiny::traits::FieldAccess::get_field_value(self, #cond_field);
+                        if other != ::scrutiny::value::FieldValue::String(#cond_value.to_string()) {
+                            if !::scrutiny::rules::presence::Presentable::is_present(&self.#field_ident) {
+                                errors.add(#field_name, ::scrutiny::error::ValidationError::new("required_unless", #msg));
                                 #bail_break
                             }
                         }
@@ -983,10 +983,10 @@ fn gen_rule_check(
             if field.is_option {
                 Ok(quote! {
                     {
-                        let other = ::validation::traits::FieldAccess::get_field_value(self, #other);
+                        let other = ::scrutiny::traits::FieldAccess::get_field_value(self, #other);
                         if !other.is_none() && !other.is_empty() {
-                            if !::validation::rules::presence::is_present_option(&self.#field_ident) {
-                                errors.add(#field_name, ::validation::error::ValidationError::new("required_with", #msg));
+                            if !::scrutiny::rules::presence::is_present_option(&self.#field_ident) {
+                                errors.add(#field_name, ::scrutiny::error::ValidationError::new("required_with", #msg));
                                 #bail_break
                             }
                         }
@@ -995,10 +995,10 @@ fn gen_rule_check(
             } else {
                 Ok(quote! {
                     {
-                        let other = ::validation::traits::FieldAccess::get_field_value(self, #other);
+                        let other = ::scrutiny::traits::FieldAccess::get_field_value(self, #other);
                         if !other.is_none() && !other.is_empty() {
-                            if !::validation::rules::presence::Presentable::is_present(&self.#field_ident) {
-                                errors.add(#field_name, ::validation::error::ValidationError::new("required_with", #msg));
+                            if !::scrutiny::rules::presence::Presentable::is_present(&self.#field_ident) {
+                                errors.add(#field_name, ::scrutiny::error::ValidationError::new("required_with", #msg));
                                 #bail_break
                             }
                         }
@@ -1018,10 +1018,10 @@ fn gen_rule_check(
             if field.is_option {
                 Ok(quote! {
                     {
-                        let other_val = ::validation::traits::FieldAccess::get_field_value(self, #other);
+                        let other_val = ::scrutiny::traits::FieldAccess::get_field_value(self, #other);
                         if other_val.is_none() || other_val.is_empty() {
-                            if !::validation::rules::presence::is_present_option(&self.#field_ident) {
-                                errors.add(#field_name, ::validation::error::ValidationError::new("required_without", #msg));
+                            if !::scrutiny::rules::presence::is_present_option(&self.#field_ident) {
+                                errors.add(#field_name, ::scrutiny::error::ValidationError::new("required_without", #msg));
                                 #bail_break
                             }
                         }
@@ -1030,10 +1030,10 @@ fn gen_rule_check(
             } else {
                 Ok(quote! {
                     {
-                        let other_val = ::validation::traits::FieldAccess::get_field_value(self, #other);
+                        let other_val = ::scrutiny::traits::FieldAccess::get_field_value(self, #other);
                         if other_val.is_none() || other_val.is_empty() {
-                            if !::validation::rules::presence::Presentable::is_present(&self.#field_ident) {
-                                errors.add(#field_name, ::validation::error::ValidationError::new("required_without", #msg));
+                            if !::scrutiny::rules::presence::Presentable::is_present(&self.#field_ident) {
+                                errors.add(#field_name, ::scrutiny::error::ValidationError::new("required_without", #msg));
                                 #bail_break
                             }
                         }
@@ -1054,7 +1054,7 @@ fn gen_rule_check(
                 format!("The {} field must start with {}.", display_name, prefix)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "starts_with", has_bail,
-                quote! { ::validation::rules::string::starts_with(val, #prefix) })
+                quote! { ::scrutiny::rules::string::starts_with(val, #prefix) })
         }
 
         "ends_with" => {
@@ -1069,7 +1069,7 @@ fn gen_rule_check(
                 format!("The {} field must end with {}.", display_name, suffix)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "ends_with", has_bail,
-                quote! { ::validation::rules::string::ends_with(val, #suffix) })
+                quote! { ::scrutiny::rules::string::ends_with(val, #suffix) })
         }
 
         "nested" | "dive" => {
@@ -1084,7 +1084,7 @@ fn gen_rule_check(
             let fn_ident = format_ident!("{}", fn_name);
             Ok(quote! {
                 if let ::std::result::Result::Err(msg) = #fn_ident(&self.#field_ident, self) {
-                    errors.add(#field_name, ::validation::error::ValidationError::new("custom", msg));
+                    errors.add(#field_name, ::scrutiny::error::ValidationError::new("custom", msg));
                     #bail_break
                 }
             })
@@ -1100,7 +1100,7 @@ fn gen_rule_check(
                 format!("The {} field must be an integer.", display_name)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "integer", has_bail,
-                quote! { ::validation::rules::string::is_integer(val) })
+                quote! { ::scrutiny::rules::string::is_integer(val) })
         }
 
         "boolean" => {
@@ -1116,7 +1116,7 @@ fn gen_rule_check(
                 format!("The {} field must be accepted.", display_name)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "accepted", has_bail,
-                quote! { ::validation::rules::presence::is_accepted(val) })
+                quote! { ::scrutiny::rules::presence::is_accepted(val) })
         }
 
         "accepted_if" => {
@@ -1125,11 +1125,11 @@ fn gen_rule_check(
                 format!("The {} field must be accepted.", display_name)
             });
             let check = gen_string_rule_check(field, &field_ident, field_name, &msg, "accepted_if", has_bail,
-                quote! { ::validation::rules::presence::is_accepted(val) })?;
+                quote! { ::scrutiny::rules::presence::is_accepted(val) })?;
             Ok(quote! {
                 {
-                    let other = ::validation::traits::FieldAccess::get_field_value(self, #cond_field);
-                    if other == ::validation::value::FieldValue::String(#cond_value.to_string()) {
+                    let other = ::scrutiny::traits::FieldAccess::get_field_value(self, #cond_field);
+                    if other == ::scrutiny::value::FieldValue::String(#cond_value.to_string()) {
                         #check
                     }
                 }
@@ -1141,7 +1141,7 @@ fn gen_rule_check(
                 format!("The {} field must be declined.", display_name)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "declined", has_bail,
-                quote! { ::validation::rules::presence::is_declined(val) })
+                quote! { ::scrutiny::rules::presence::is_declined(val) })
         }
 
         "declined_if" => {
@@ -1150,11 +1150,11 @@ fn gen_rule_check(
                 format!("The {} field must be declined.", display_name)
             });
             let check = gen_string_rule_check(field, &field_ident, field_name, &msg, "declined_if", has_bail,
-                quote! { ::validation::rules::presence::is_declined(val) })?;
+                quote! { ::scrutiny::rules::presence::is_declined(val) })?;
             Ok(quote! {
                 {
-                    let other = ::validation::traits::FieldAccess::get_field_value(self, #cond_field);
-                    if other == ::validation::value::FieldValue::String(#cond_value.to_string()) {
+                    let other = ::scrutiny::traits::FieldAccess::get_field_value(self, #cond_field);
+                    if other == ::scrutiny::value::FieldValue::String(#cond_value.to_string()) {
                         #check
                     }
                 }
@@ -1166,7 +1166,7 @@ fn gen_rule_check(
                 format!("The {} field must not be empty when present.", display_name)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "filled", has_bail,
-                quote! { ::validation::rules::presence::is_filled(val) })
+                quote! { ::scrutiny::rules::presence::is_filled(val) })
         }
 
         "prohibited" => {
@@ -1176,14 +1176,14 @@ fn gen_rule_check(
             if field.is_option {
                 Ok(quote! {
                     if self.#field_ident.is_some() {
-                        errors.add(#field_name, ::validation::error::ValidationError::new("prohibited", #msg));
+                        errors.add(#field_name, ::scrutiny::error::ValidationError::new("prohibited", #msg));
                         #bail_break
                     }
                 })
             } else {
                 Ok(quote! {
-                    if ::validation::rules::presence::Presentable::is_present(&self.#field_ident) {
-                        errors.add(#field_name, ::validation::error::ValidationError::new("prohibited", #msg));
+                    if ::scrutiny::rules::presence::Presentable::is_present(&self.#field_ident) {
+                        errors.add(#field_name, ::scrutiny::error::ValidationError::new("prohibited", #msg));
                         #bail_break
                     }
                 })
@@ -1198,10 +1198,10 @@ fn gen_rule_check(
             if field.is_option {
                 Ok(quote! {
                     {
-                        let other = ::validation::traits::FieldAccess::get_field_value(self, #cond_field);
-                        if other == ::validation::value::FieldValue::String(#cond_value.to_string()) {
+                        let other = ::scrutiny::traits::FieldAccess::get_field_value(self, #cond_field);
+                        if other == ::scrutiny::value::FieldValue::String(#cond_value.to_string()) {
                             if self.#field_ident.is_some() {
-                                errors.add(#field_name, ::validation::error::ValidationError::new("prohibited_if", #msg));
+                                errors.add(#field_name, ::scrutiny::error::ValidationError::new("prohibited_if", #msg));
                                 #bail_break
                             }
                         }
@@ -1210,10 +1210,10 @@ fn gen_rule_check(
             } else {
                 Ok(quote! {
                     {
-                        let other = ::validation::traits::FieldAccess::get_field_value(self, #cond_field);
-                        if other == ::validation::value::FieldValue::String(#cond_value.to_string()) {
-                            if ::validation::rules::presence::Presentable::is_present(&self.#field_ident) {
-                                errors.add(#field_name, ::validation::error::ValidationError::new("prohibited_if", #msg));
+                        let other = ::scrutiny::traits::FieldAccess::get_field_value(self, #cond_field);
+                        if other == ::scrutiny::value::FieldValue::String(#cond_value.to_string()) {
+                            if ::scrutiny::rules::presence::Presentable::is_present(&self.#field_ident) {
+                                errors.add(#field_name, ::scrutiny::error::ValidationError::new("prohibited_if", #msg));
                                 #bail_break
                             }
                         }
@@ -1230,10 +1230,10 @@ fn gen_rule_check(
             if field.is_option {
                 Ok(quote! {
                     {
-                        let other = ::validation::traits::FieldAccess::get_field_value(self, #cond_field);
-                        if other != ::validation::value::FieldValue::String(#cond_value.to_string()) {
+                        let other = ::scrutiny::traits::FieldAccess::get_field_value(self, #cond_field);
+                        if other != ::scrutiny::value::FieldValue::String(#cond_value.to_string()) {
                             if self.#field_ident.is_some() {
-                                errors.add(#field_name, ::validation::error::ValidationError::new("prohibited_unless", #msg));
+                                errors.add(#field_name, ::scrutiny::error::ValidationError::new("prohibited_unless", #msg));
                                 #bail_break
                             }
                         }
@@ -1242,10 +1242,10 @@ fn gen_rule_check(
             } else {
                 Ok(quote! {
                     {
-                        let other = ::validation::traits::FieldAccess::get_field_value(self, #cond_field);
-                        if other != ::validation::value::FieldValue::String(#cond_value.to_string()) {
-                            if ::validation::rules::presence::Presentable::is_present(&self.#field_ident) {
-                                errors.add(#field_name, ::validation::error::ValidationError::new("prohibited_unless", #msg));
+                        let other = ::scrutiny::traits::FieldAccess::get_field_value(self, #cond_field);
+                        if other != ::scrutiny::value::FieldValue::String(#cond_value.to_string()) {
+                            if ::scrutiny::rules::presence::Presentable::is_present(&self.#field_ident) {
+                                errors.add(#field_name, ::scrutiny::error::ValidationError::new("prohibited_unless", #msg));
                                 #bail_break
                             }
                         }
@@ -1265,7 +1265,7 @@ fn gen_rule_check(
             let checks: Vec<TokenStream> = fields_list.iter().map(|f| {
                 quote! {
                     {
-                        let fv = ::validation::traits::FieldAccess::get_field_value(self, #f);
+                        let fv = ::scrutiny::traits::FieldAccess::get_field_value(self, #f);
                         !fv.is_none() && !fv.is_empty()
                     }
                 }
@@ -1289,7 +1289,7 @@ fn gen_rule_check(
             let checks: Vec<TokenStream> = fields_list.iter().map(|f| {
                 quote! {
                     {
-                        let fv = ::validation::traits::FieldAccess::get_field_value(self, #f);
+                        let fv = ::scrutiny::traits::FieldAccess::get_field_value(self, #f);
                         fv.is_none() || fv.is_empty()
                     }
                 }
@@ -1316,7 +1316,7 @@ fn gen_rule_check(
                 format!("The {} format is invalid.", display_name)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "not_regex", has_bail,
-                quote! { ::validation::rules::format::not_matches_regex(val, #pattern) })
+                quote! { ::scrutiny::rules::format::not_matches_regex(val, #pattern) })
         }
 
         "contains" => {
@@ -1325,7 +1325,7 @@ fn gen_rule_check(
                 format!("The {} field must contain {}.", display_name, needle)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "contains", has_bail,
-                quote! { ::validation::rules::string::contains(val, #needle) })
+                quote! { ::scrutiny::rules::string::contains(val, #needle) })
         }
 
         "doesnt_contain" => {
@@ -1334,7 +1334,7 @@ fn gen_rule_check(
                 format!("The {} field must not contain {}.", display_name, needle)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "doesnt_contain", has_bail,
-                quote! { ::validation::rules::string::doesnt_contain(val, #needle) })
+                quote! { ::scrutiny::rules::string::doesnt_contain(val, #needle) })
         }
 
         "doesnt_start_with" => {
@@ -1343,7 +1343,7 @@ fn gen_rule_check(
                 format!("The {} field must not start with {}.", display_name, prefix)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "doesnt_start_with", has_bail,
-                quote! { ::validation::rules::string::doesnt_start_with(val, #prefix) })
+                quote! { ::scrutiny::rules::string::doesnt_start_with(val, #prefix) })
         }
 
         "doesnt_end_with" => {
@@ -1352,7 +1352,7 @@ fn gen_rule_check(
                 format!("The {} field must not end with {}.", display_name, suffix)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "doesnt_end_with", has_bail,
-                quote! { ::validation::rules::string::doesnt_end_with(val, #suffix) })
+                quote! { ::scrutiny::rules::string::doesnt_end_with(val, #suffix) })
         }
 
         "uppercase" => {
@@ -1360,7 +1360,7 @@ fn gen_rule_check(
                 format!("The {} field must be uppercase.", display_name)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "uppercase", has_bail,
-                quote! { ::validation::rules::string::is_uppercase(val) })
+                quote! { ::scrutiny::rules::string::is_uppercase(val) })
         }
 
         "lowercase" => {
@@ -1368,7 +1368,7 @@ fn gen_rule_check(
                 format!("The {} field must be lowercase.", display_name)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "lowercase", has_bail,
-                quote! { ::validation::rules::string::is_lowercase(val) })
+                quote! { ::scrutiny::rules::string::is_lowercase(val) })
         }
 
         "gt" => {
@@ -1379,10 +1379,10 @@ fn gen_rule_check(
             });
             Ok(quote! {
                 {
-                    let a = ::validation::traits::FieldAccess::get_field_value(self, #field_name);
-                    let b = ::validation::traits::FieldAccess::get_field_value(self, #other);
-                    if !::validation::rules::comparison::is_gt(&a, &b) {
-                        errors.add(#field_name, ::validation::error::ValidationError::new("gt", #msg));
+                    let a = ::scrutiny::traits::FieldAccess::get_field_value(self, #field_name);
+                    let b = ::scrutiny::traits::FieldAccess::get_field_value(self, #other);
+                    if !::scrutiny::rules::comparison::is_gt(&a, &b) {
+                        errors.add(#field_name, ::scrutiny::error::ValidationError::new("gt", #msg));
                         #bail_break
                     }
                 }
@@ -1397,10 +1397,10 @@ fn gen_rule_check(
             });
             Ok(quote! {
                 {
-                    let a = ::validation::traits::FieldAccess::get_field_value(self, #field_name);
-                    let b = ::validation::traits::FieldAccess::get_field_value(self, #other);
-                    if !::validation::rules::comparison::is_gte(&a, &b) {
-                        errors.add(#field_name, ::validation::error::ValidationError::new("gte", #msg));
+                    let a = ::scrutiny::traits::FieldAccess::get_field_value(self, #field_name);
+                    let b = ::scrutiny::traits::FieldAccess::get_field_value(self, #other);
+                    if !::scrutiny::rules::comparison::is_gte(&a, &b) {
+                        errors.add(#field_name, ::scrutiny::error::ValidationError::new("gte", #msg));
                         #bail_break
                     }
                 }
@@ -1415,10 +1415,10 @@ fn gen_rule_check(
             });
             Ok(quote! {
                 {
-                    let a = ::validation::traits::FieldAccess::get_field_value(self, #field_name);
-                    let b = ::validation::traits::FieldAccess::get_field_value(self, #other);
-                    if !::validation::rules::comparison::is_lt(&a, &b) {
-                        errors.add(#field_name, ::validation::error::ValidationError::new("lt", #msg));
+                    let a = ::scrutiny::traits::FieldAccess::get_field_value(self, #field_name);
+                    let b = ::scrutiny::traits::FieldAccess::get_field_value(self, #other);
+                    if !::scrutiny::rules::comparison::is_lt(&a, &b) {
+                        errors.add(#field_name, ::scrutiny::error::ValidationError::new("lt", #msg));
                         #bail_break
                     }
                 }
@@ -1433,10 +1433,10 @@ fn gen_rule_check(
             });
             Ok(quote! {
                 {
-                    let a = ::validation::traits::FieldAccess::get_field_value(self, #field_name);
-                    let b = ::validation::traits::FieldAccess::get_field_value(self, #other);
-                    if !::validation::rules::comparison::is_lte(&a, &b) {
-                        errors.add(#field_name, ::validation::error::ValidationError::new("lte", #msg));
+                    let a = ::scrutiny::traits::FieldAccess::get_field_value(self, #field_name);
+                    let b = ::scrutiny::traits::FieldAccess::get_field_value(self, #other);
+                    if !::scrutiny::rules::comparison::is_lte(&a, &b) {
+                        errors.add(#field_name, ::scrutiny::error::ValidationError::new("lte", #msg));
                         #bail_break
                     }
                 }
@@ -1468,7 +1468,7 @@ fn gen_rule_check(
                     });
                     let size_val: usize = value_str.parse().map_err(|_| syn::Error::new(rule.span, "size must be a number"))?;
                     gen_string_rule_check(field, &field_ident, field_name, &msg, "size", has_bail,
-                        quote! { ::validation::rules::string::check_size(val, #size_val) })
+                        quote! { ::scrutiny::rules::string::check_size(val, #size_val) })
                 }
             }
         }
@@ -1482,7 +1482,7 @@ fn gen_rule_check(
                 syn::Error::new(rule.span, "digits value must be a positive integer")
             })?;
             gen_string_rule_check(field, &field_ident, field_name, &msg, "digits", has_bail,
-                quote! { ::validation::rules::numeric::check_digits(val, #count) })
+                quote! { ::scrutiny::rules::numeric::check_digits(val, #count) })
         }
 
         "digits_between" => {
@@ -1502,7 +1502,7 @@ fn gen_rule_check(
             let min_val: usize = min_str.parse().map_err(|_| syn::Error::new(rule.span, "digits_between min must be integer"))?;
             let max_val: usize = max_str.parse().map_err(|_| syn::Error::new(rule.span, "digits_between max must be integer"))?;
             gen_string_rule_check(field, &field_ident, field_name, &msg, "digits_between", has_bail,
-                quote! { ::validation::rules::numeric::check_digits_between(val, #min_val, #max_val) })
+                quote! { ::scrutiny::rules::numeric::check_digits_between(val, #min_val, #max_val) })
         }
 
         "multiple_of" => {
@@ -1517,7 +1517,7 @@ fn gen_rule_check(
                 quote! {
                     {
                         let parsed: ::std::result::Result<f64, _> = val.parse();
-                        parsed.is_ok_and(|v| ::validation::rules::numeric::is_multiple_of(v, #n))
+                        parsed.is_ok_and(|v| ::scrutiny::rules::numeric::is_multiple_of(v, #n))
                     }
                 })
         }
@@ -1544,11 +1544,11 @@ fn gen_rule_check(
                 Some(max) => {
                     let max_places: usize = max.parse().map_err(|_| syn::Error::new(rule.span, "decimal max must be integer"))?;
                     gen_string_rule_check(field, &field_ident, field_name, &msg, "decimal", has_bail,
-                        quote! { ::validation::rules::numeric::check_decimal(val, #min_places, Some(#max_places)) })
+                        quote! { ::scrutiny::rules::numeric::check_decimal(val, #min_places, Some(#max_places)) })
                 }
                 None => {
                     gen_string_rule_check(field, &field_ident, field_name, &msg, "decimal", has_bail,
-                        quote! { ::validation::rules::numeric::check_decimal(val, #min_places, None) })
+                        quote! { ::scrutiny::rules::numeric::check_decimal(val, #min_places, None) })
                 }
             }
         }
@@ -1558,7 +1558,7 @@ fn gen_rule_check(
                 format!("The {} field must be a valid ISO 8601 date (YYYY-MM-DD).", display_name)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "date", has_bail,
-                quote! { ::validation::rules::format::is_iso_date(val) })
+                quote! { ::scrutiny::rules::format::is_iso_date(val) })
         }
 
         "datetime" => {
@@ -1566,7 +1566,7 @@ fn gen_rule_check(
                 format!("The {} field must be a valid ISO 8601 datetime.", display_name)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "datetime", has_bail,
-                quote! { ::validation::rules::format::is_iso_datetime(val) })
+                quote! { ::scrutiny::rules::format::is_iso_datetime(val) })
         }
 
         "date_equals" => {
@@ -1575,7 +1575,7 @@ fn gen_rule_check(
                 format!("The {} field must be equal to {}.", display_name, other)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "date_equals", has_bail,
-                quote! { ::validation::rules::format::is_date_equals(val, #other) })
+                quote! { ::scrutiny::rules::format::is_date_equals(val, #other) })
         }
 
         "before" => {
@@ -1584,7 +1584,7 @@ fn gen_rule_check(
                 format!("The {} field must be a date before {}.", display_name, other)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "before", has_bail,
-                quote! { ::validation::rules::format::is_before(val, #other) })
+                quote! { ::scrutiny::rules::format::is_before(val, #other) })
         }
 
         "after" => {
@@ -1593,7 +1593,7 @@ fn gen_rule_check(
                 format!("The {} field must be a date after {}.", display_name, other)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "after", has_bail,
-                quote! { ::validation::rules::format::is_after(val, #other) })
+                quote! { ::scrutiny::rules::format::is_after(val, #other) })
         }
 
         "before_or_equal" => {
@@ -1602,7 +1602,7 @@ fn gen_rule_check(
                 format!("The {} field must be a date before or equal to {}.", display_name, other)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "before_or_equal", has_bail,
-                quote! { ::validation::rules::format::is_before_or_equal(val, #other) })
+                quote! { ::scrutiny::rules::format::is_before_or_equal(val, #other) })
         }
 
         "after_or_equal" => {
@@ -1611,7 +1611,7 @@ fn gen_rule_check(
                 format!("The {} field must be a date after or equal to {}.", display_name, other)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "after_or_equal", has_bail,
-                quote! { ::validation::rules::format::is_after_or_equal(val, #other) })
+                quote! { ::scrutiny::rules::format::is_after_or_equal(val, #other) })
         }
 
         "hex_color" => {
@@ -1619,7 +1619,7 @@ fn gen_rule_check(
                 format!("The {} field must be a valid hex color.", display_name)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "hex_color", has_bail,
-                quote! { ::validation::rules::format::is_hex_color(val) })
+                quote! { ::scrutiny::rules::format::is_hex_color(val) })
         }
 
         "timezone" => {
@@ -1627,7 +1627,7 @@ fn gen_rule_check(
                 format!("The {} field must be a valid timezone.", display_name)
             });
             gen_string_rule_check(field, &field_ident, field_name, &msg, "timezone", has_bail,
-                quote! { ::validation::rules::format::is_timezone(val) })
+                quote! { ::scrutiny::rules::format::is_timezone(val) })
         }
 
         "in_array" => {
@@ -1637,10 +1637,10 @@ fn gen_rule_check(
             });
             Ok(quote! {
                 {
-                    let val = ::validation::traits::FieldAccess::get_field_value(self, #field_name);
-                    let arr = ::validation::traits::FieldAccess::get_field_value(self, #other);
-                    if !::validation::rules::comparison::is_in_array(&val, &arr) {
-                        errors.add(#field_name, ::validation::error::ValidationError::new("in_array", #msg));
+                    let val = ::scrutiny::traits::FieldAccess::get_field_value(self, #field_name);
+                    let arr = ::scrutiny::traits::FieldAccess::get_field_value(self, #other);
+                    if !::scrutiny::rules::comparison::is_in_array(&val, &arr) {
+                        errors.add(#field_name, ::scrutiny::error::ValidationError::new("in_array", #msg));
                         #bail_break
                     }
                 }
@@ -1653,9 +1653,9 @@ fn gen_rule_check(
             });
             Ok(quote! {
                 {
-                    let val = ::validation::traits::FieldAccess::get_field_value(self, #field_name);
-                    if !::validation::rules::comparison::is_distinct(&val) {
-                        errors.add(#field_name, ::validation::error::ValidationError::new("distinct", #msg));
+                    let val = ::scrutiny::traits::FieldAccess::get_field_value(self, #field_name);
+                    if !::scrutiny::rules::comparison::is_distinct(&val) {
+                        errors.add(#field_name, ::scrutiny::error::ValidationError::new("distinct", #msg));
                         #bail_break
                     }
                 }
@@ -1708,15 +1708,15 @@ fn gen_enum_field_check(
         "required" => {
             if field.is_option {
                 Ok(quote! {
-                    if !::validation::rules::presence::is_present_option(#var_ident) {
-                        errors.add(#field_name, ::validation::error::ValidationError::new("required", #msg));
+                    if !::scrutiny::rules::presence::is_present_option(#var_ident) {
+                        errors.add(#field_name, ::scrutiny::error::ValidationError::new("required", #msg));
                         #bail_break
                     }
                 })
             } else {
                 Ok(quote! {
-                    if !::validation::rules::presence::Presentable::is_present(#var_ident) {
-                        errors.add(#field_name, ::validation::error::ValidationError::new("required", #msg));
+                    if !::scrutiny::rules::presence::Presentable::is_present(#var_ident) {
+                        errors.add(#field_name, ::scrutiny::error::ValidationError::new("required", #msg));
                         #bail_break
                     }
                 })
@@ -1727,14 +1727,14 @@ fn gen_enum_field_check(
             if field.is_option {
                 Ok(quote! {
                     if let Some(ref inner) = #var_ident {
-                        if let ::std::result::Result::Err(nested_errors) = ::validation::traits::Validate::validate(inner) {
+                        if let ::std::result::Result::Err(nested_errors) = ::scrutiny::traits::Validate::validate(inner) {
                             errors.merge_with_prefix(#field_name, nested_errors);
                         }
                     }
                 })
             } else {
                 Ok(quote! {
-                    if let ::std::result::Result::Err(nested_errors) = ::validation::traits::Validate::validate(#var_ident) {
+                    if let ::std::result::Result::Err(nested_errors) = ::scrutiny::traits::Validate::validate(#var_ident) {
                         errors.merge_with_prefix(#field_name, nested_errors);
                     }
                 })
@@ -1760,7 +1760,7 @@ fn gen_enum_field_check(
                 Ok(quote! {
                     if let Some(val) = #var_ident {
                         if !(#check) {
-                            errors.add(#field_name, ::validation::error::ValidationError::new(#rule_name, #msg));
+                            errors.add(#field_name, ::scrutiny::error::ValidationError::new(#rule_name, #msg));
                             #bail_break
                         }
                     }
@@ -1770,7 +1770,7 @@ fn gen_enum_field_check(
                     {
                         let val = #var_ident;
                         if !(#check) {
-                            errors.add(#field_name, ::validation::error::ValidationError::new(#rule_name, #msg));
+                            errors.add(#field_name, ::scrutiny::error::ValidationError::new(#rule_name, #msg));
                             #bail_break
                         }
                     }
@@ -1788,7 +1788,7 @@ fn gen_enum_field_check(
                     Ok(quote! {
                         if let Some(val) = #var_ident {
                             if !#check {
-                                errors.add(#field_name, ::validation::error::ValidationError::new(#rule_name, #msg));
+                                errors.add(#field_name, ::scrutiny::error::ValidationError::new(#rule_name, #msg));
                                 #bail_break
                             }
                         }
@@ -1799,7 +1799,7 @@ fn gen_enum_field_check(
                             let val = #var_ident;
                             let val: &str = val.as_ref();
                             if !#check {
-                                errors.add(#field_name, ::validation::error::ValidationError::new(#rule_name, #msg));
+                                errors.add(#field_name, ::scrutiny::error::ValidationError::new(#rule_name, #msg));
                                 #bail_break
                             }
                         }
@@ -1820,26 +1820,26 @@ fn gen_string_check_expr(
     _display_name: &str,
 ) -> syn::Result<Option<TokenStream>> {
     Ok(match rule.name.as_str() {
-        "email" => Some(quote! { ::validation::rules::format::is_email(val) }),
-        "url" => Some(quote! { ::validation::rules::format::is_url(val) }),
-        "alpha" => Some(quote! { ::validation::rules::string::is_alpha(val) }),
-        "alpha_num" => Some(quote! { ::validation::rules::string::is_alpha_num(val) }),
-        "alpha_dash" => Some(quote! { ::validation::rules::string::is_alpha_dash(val) }),
-        "numeric" => Some(quote! { ::validation::rules::string::is_numeric(val) }),
-        "integer" => Some(quote! { ::validation::rules::string::is_integer(val) }),
-        "ascii" => Some(quote! { ::validation::rules::format::is_ascii(val) }),
-        "uuid" => Some(quote! { ::validation::rules::format::is_uuid(val) }),
-        "ulid" => Some(quote! { ::validation::rules::format::is_ulid(val) }),
-        "ip" => Some(quote! { ::validation::rules::format::is_ip(val) }),
-        "ipv4" => Some(quote! { ::validation::rules::format::is_ipv4(val) }),
-        "ipv6" => Some(quote! { ::validation::rules::format::is_ipv6(val) }),
-        "json" => Some(quote! { ::validation::rules::format::is_json(val) }),
-        "mac_address" => Some(quote! { ::validation::rules::format::is_mac_address(val) }),
-        "hex_color" => Some(quote! { ::validation::rules::format::is_hex_color(val) }),
-        "uppercase" => Some(quote! { ::validation::rules::string::is_uppercase(val) }),
-        "lowercase" => Some(quote! { ::validation::rules::string::is_lowercase(val) }),
-        "date" => Some(quote! { ::validation::rules::format::is_iso_date(val) }),
-        "datetime" => Some(quote! { ::validation::rules::format::is_iso_datetime(val) }),
+        "email" => Some(quote! { ::scrutiny::rules::format::is_email(val) }),
+        "url" => Some(quote! { ::scrutiny::rules::format::is_url(val) }),
+        "alpha" => Some(quote! { ::scrutiny::rules::string::is_alpha(val) }),
+        "alpha_num" => Some(quote! { ::scrutiny::rules::string::is_alpha_num(val) }),
+        "alpha_dash" => Some(quote! { ::scrutiny::rules::string::is_alpha_dash(val) }),
+        "numeric" => Some(quote! { ::scrutiny::rules::string::is_numeric(val) }),
+        "integer" => Some(quote! { ::scrutiny::rules::string::is_integer(val) }),
+        "ascii" => Some(quote! { ::scrutiny::rules::format::is_ascii(val) }),
+        "uuid" => Some(quote! { ::scrutiny::rules::format::is_uuid(val) }),
+        "ulid" => Some(quote! { ::scrutiny::rules::format::is_ulid(val) }),
+        "ip" => Some(quote! { ::scrutiny::rules::format::is_ip(val) }),
+        "ipv4" => Some(quote! { ::scrutiny::rules::format::is_ipv4(val) }),
+        "ipv6" => Some(quote! { ::scrutiny::rules::format::is_ipv6(val) }),
+        "json" => Some(quote! { ::scrutiny::rules::format::is_json(val) }),
+        "mac_address" => Some(quote! { ::scrutiny::rules::format::is_mac_address(val) }),
+        "hex_color" => Some(quote! { ::scrutiny::rules::format::is_hex_color(val) }),
+        "uppercase" => Some(quote! { ::scrutiny::rules::string::is_uppercase(val) }),
+        "lowercase" => Some(quote! { ::scrutiny::rules::string::is_lowercase(val) }),
+        "date" => Some(quote! { ::scrutiny::rules::format::is_iso_date(val) }),
+        "datetime" => Some(quote! { ::scrutiny::rules::format::is_iso_datetime(val) }),
         "min" => {
             let v = extract_single_value(rule, "min")?;
             let kind = classify_field(field);
@@ -1851,7 +1851,7 @@ fn gen_string_check_expr(
                 }
                 _ => {
                     let n: usize = v.parse().unwrap_or(0);
-                    Some(quote! { ::validation::rules::string::check_min_length(val, #n) })
+                    Some(quote! { ::scrutiny::rules::string::check_min_length(val, #n) })
                 }
             }
         }
@@ -1866,43 +1866,43 @@ fn gen_string_check_expr(
                 }
                 _ => {
                     let n: usize = v.parse().unwrap_or(0);
-                    Some(quote! { ::validation::rules::string::check_max_length(val, #n) })
+                    Some(quote! { ::scrutiny::rules::string::check_max_length(val, #n) })
                 }
             }
         }
         "regex" => {
             let pattern = extract_single_value(rule, "regex")?;
-            Some(quote! { ::validation::rules::format::matches_regex(val, #pattern) })
+            Some(quote! { ::scrutiny::rules::format::matches_regex(val, #pattern) })
         }
         "not_regex" => {
             let pattern = extract_single_value(rule, "not_regex")?;
-            Some(quote! { ::validation::rules::format::not_matches_regex(val, #pattern) })
+            Some(quote! { ::scrutiny::rules::format::not_matches_regex(val, #pattern) })
         }
         "contains" => {
             let needle = extract_single_value(rule, "contains")?;
-            Some(quote! { ::validation::rules::string::contains(val, #needle) })
+            Some(quote! { ::scrutiny::rules::string::contains(val, #needle) })
         }
         "starts_with" => {
             let prefix = extract_single_value(rule, "starts_with")?;
-            Some(quote! { ::validation::rules::string::starts_with(val, #prefix) })
+            Some(quote! { ::scrutiny::rules::string::starts_with(val, #prefix) })
         }
         "ends_with" => {
             let suffix = extract_single_value(rule, "ends_with")?;
-            Some(quote! { ::validation::rules::string::ends_with(val, #suffix) })
+            Some(quote! { ::scrutiny::rules::string::ends_with(val, #suffix) })
         }
         "in_list" => {
             let items = match &rule.params {
                 RuleParams::List(items) => items.clone(),
                 _ => return Ok(None),
             };
-            Some(quote! { ::validation::rules::comparison::is_in(val, &[#(#items),*]) })
+            Some(quote! { ::scrutiny::rules::comparison::is_in(val, &[#(#items),*]) })
         }
         "string" | "boolean" | "filled" | "accepted" | "declined" => {
             // These work the same way in enums
             match rule.name.as_str() {
-                "filled" => Some(quote! { ::validation::rules::presence::is_filled(val) }),
-                "accepted" => Some(quote! { ::validation::rules::presence::is_accepted(val) }),
-                "declined" => Some(quote! { ::validation::rules::presence::is_declined(val) }),
+                "filled" => Some(quote! { ::scrutiny::rules::presence::is_filled(val) }),
+                "accepted" => Some(quote! { ::scrutiny::rules::presence::is_accepted(val) }),
+                "declined" => Some(quote! { ::scrutiny::rules::presence::is_declined(val) }),
                 "boolean" => Some(quote! { matches!(val, "true" | "false" | "1" | "0") }),
                 _ => Some(quote! { true }),
             }
@@ -1951,15 +1951,15 @@ fn gen_presence_check(
 ) -> TokenStream {
     if field.is_option {
         quote! {
-            if !::validation::rules::presence::is_present_option(&self.#field_ident) {
-                errors.add(#field_name, ::validation::error::ValidationError::new(#rule_name, #msg));
+            if !::scrutiny::rules::presence::is_present_option(&self.#field_ident) {
+                errors.add(#field_name, ::scrutiny::error::ValidationError::new(#rule_name, #msg));
                 #bail_break
             }
         }
     } else {
         quote! {
-            if !::validation::rules::presence::Presentable::is_present(&self.#field_ident) {
-                errors.add(#field_name, ::validation::error::ValidationError::new(#rule_name, #msg));
+            if !::scrutiny::rules::presence::Presentable::is_present(&self.#field_ident) {
+                errors.add(#field_name, ::scrutiny::error::ValidationError::new(#rule_name, #msg));
                 #bail_break
             }
         }
@@ -1986,7 +1986,7 @@ fn gen_string_rule_check(
         Ok(quote! {
             if let Some(ref val) = self.#field_ident {
                 if !#check_expr {
-                    errors.add(#field_name, ::validation::error::ValidationError::new(#rule_name, #msg));
+                    errors.add(#field_name, ::scrutiny::error::ValidationError::new(#rule_name, #msg));
                     #bail_break
                 }
             }
@@ -1997,7 +1997,7 @@ fn gen_string_rule_check(
                 let val = &self.#field_ident;
                 let val: &str = val.as_ref();
                 if !#check_expr {
-                    errors.add(#field_name, ::validation::error::ValidationError::new(#rule_name, #msg));
+                    errors.add(#field_name, ::scrutiny::error::ValidationError::new(#rule_name, #msg));
                     #bail_break
                 }
             }
@@ -2047,7 +2047,7 @@ fn gen_numeric_rule_check_raw(
         Ok(quote! {
             if let Some(ref val) = self.#field_ident {
                 if !(#check_expr) {
-                    errors.add(#field_name, ::validation::error::ValidationError::new(#rule_name, #msg));
+                    errors.add(#field_name, ::scrutiny::error::ValidationError::new(#rule_name, #msg));
                     #bail_break
                 }
             }
@@ -2057,7 +2057,7 @@ fn gen_numeric_rule_check_raw(
             {
                 let val = &self.#field_ident;
                 if !(#check_expr) {
-                    errors.add(#field_name, ::validation::error::ValidationError::new(#rule_name, #msg));
+                    errors.add(#field_name, ::scrutiny::error::ValidationError::new(#rule_name, #msg));
                     #bail_break
                 }
             }
@@ -2085,7 +2085,7 @@ fn gen_vec_rule_check(
         Ok(quote! {
             if let Some(ref val) = self.#field_ident {
                 if !(#check_expr) {
-                    errors.add(#field_name, ::validation::error::ValidationError::new(#rule_name, #msg));
+                    errors.add(#field_name, ::scrutiny::error::ValidationError::new(#rule_name, #msg));
                     #bail_break
                 }
             }
@@ -2095,7 +2095,7 @@ fn gen_vec_rule_check(
             {
                 let val = &self.#field_ident;
                 if !(#check_expr) {
-                    errors.add(#field_name, ::validation::error::ValidationError::new(#rule_name, #msg));
+                    errors.add(#field_name, ::scrutiny::error::ValidationError::new(#rule_name, #msg));
                     #bail_break
                 }
             }
@@ -2121,7 +2121,7 @@ fn gen_dive_check(
         Ok(quote! {
             if let Some(ref items) = self.#field_ident {
                 for (i, item) in items.iter().enumerate() {
-                    if let ::std::result::Result::Err(nested_errors) = ::validation::traits::Validate::validate(item) {
+                    if let ::std::result::Result::Err(nested_errors) = ::scrutiny::traits::Validate::validate(item) {
                         errors.merge_with_prefix(&format!("{}.{}", #field_name, i), nested_errors);
                     }
                 }
@@ -2131,7 +2131,7 @@ fn gen_dive_check(
         // Option<T> — validate inner if Some
         Ok(quote! {
             if let Some(ref inner) = self.#field_ident {
-                if let ::std::result::Result::Err(nested_errors) = ::validation::traits::Validate::validate(inner) {
+                if let ::std::result::Result::Err(nested_errors) = ::scrutiny::traits::Validate::validate(inner) {
                     errors.merge_with_prefix(#field_name, nested_errors);
                     #bail_break
                 }
@@ -2141,7 +2141,7 @@ fn gen_dive_check(
         // Vec<T> — validate each element
         Ok(quote! {
             for (i, item) in self.#field_ident.iter().enumerate() {
-                if let ::std::result::Result::Err(nested_errors) = ::validation::traits::Validate::validate(item) {
+                if let ::std::result::Result::Err(nested_errors) = ::scrutiny::traits::Validate::validate(item) {
                     errors.merge_with_prefix(&format!("{}.{}", #field_name, i), nested_errors);
                 }
             }
@@ -2149,7 +2149,7 @@ fn gen_dive_check(
     } else {
         // T — validate directly
         Ok(quote! {
-            if let ::std::result::Result::Err(nested_errors) = ::validation::traits::Validate::validate(&self.#field_ident) {
+            if let ::std::result::Result::Err(nested_errors) = ::scrutiny::traits::Validate::validate(&self.#field_ident) {
                 errors.merge_with_prefix(#field_name, nested_errors);
                 #bail_break
             }

@@ -1,5 +1,5 @@
-use validation::Validate;
-use validation::traits::Validate as ValidateTrait;
+use scrutiny::Validate;
+use scrutiny::traits::Validate as ValidateTrait;
 
 // ── Tuple struct (newtype) ──
 

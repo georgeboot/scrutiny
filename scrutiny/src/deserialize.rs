@@ -9,7 +9,7 @@
 //! # Usage
 //!
 //! ```rust,ignore
-//! use validation::deserialize::from_json;
+//! use scrutiny::deserialize::from_json;
 //!
 //! let input = br#"{"name": "Jo", "id": "not-a-uuid"}"#;
 //! match from_json::<CreateUser>(input) {
@@ -22,7 +22,7 @@
 //!
 //! ## For axum users
 //!
-//! You don't need these functions directly — the `validation-axum` extractors
+//! You don't need these functions directly — the `scrutiny-axum` extractors
 //! (`Valid<T>`, `ValidForm<T>`, etc.) call them automatically.
 //!
 //! Requires the `serde_json` and `serde_path_to_error` features (both default).
@@ -48,8 +48,8 @@ fn path_to_field_name(path: String) -> String {
 /// # Example
 ///
 /// ```rust
-/// use validation::Validate;
-/// use validation::traits::Validate as _;
+/// use scrutiny::Validate;
+/// use scrutiny::traits::Validate as _;
 /// use serde::Deserialize;
 ///
 /// #[derive(Validate, Deserialize, Debug)]
@@ -60,17 +60,17 @@ fn path_to_field_name(path: String) -> String {
 /// }
 ///
 /// // Deserialization error on `count` → field-level error
-/// let result = validation::deserialize::from_json::<Input>(br#"{"name": "Jo", "count": "abc"}"#);
+/// let result = scrutiny::deserialize::from_json::<Input>(br#"{"name": "Jo", "count": "abc"}"#);
 /// let err = result.unwrap_err();
 /// assert!(err.messages().contains_key("count"));
 ///
 /// // Validation error on `name` (too short is fine, but missing is caught)
-/// let result = validation::deserialize::from_json::<Input>(br#"{"count": 5}"#);
+/// let result = scrutiny::deserialize::from_json::<Input>(br#"{"count": 5}"#);
 /// let err = result.unwrap_err();
 /// assert!(err.messages().contains_key("name"));
 ///
 /// // Both valid
-/// let result = validation::deserialize::from_json::<Input>(br#"{"name": "John", "count": 5}"#);
+/// let result = scrutiny::deserialize::from_json::<Input>(br#"{"name": "John", "count": 5}"#);
 /// assert!(result.is_ok());
 /// ```
 #[cfg(all(feature = "serde_json", feature = "serde_path_to_error"))]

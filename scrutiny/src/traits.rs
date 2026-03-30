@@ -15,8 +15,8 @@ use crate::value::FieldValue;
 /// # Example
 ///
 /// ```rust
-/// use validation::Validate;
-/// use validation::traits::Validate as _;
+/// use scrutiny::Validate;
+/// use scrutiny::traits::Validate as _;
 ///
 /// #[derive(Validate)]
 /// struct Login {
@@ -50,7 +50,7 @@ pub trait FieldAccess {
 /// # Example
 ///
 /// ```rust
-/// use validation::traits::{Rule, FieldAccess};
+/// use scrutiny::traits::{Rule, FieldAccess};
 ///
 /// struct NoSpam;
 ///

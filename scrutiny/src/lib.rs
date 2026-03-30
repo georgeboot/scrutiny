@@ -1,4 +1,4 @@
-//! # Validation
+//! # Scrutiny
 //!
 //! A powerful, Laravel-inspired validation library for Rust. Uses derive macros and
 //! field-level attributes to declaratively validate structs — no runtime string parsing.
@@ -24,8 +24,8 @@
 //! ## Quick Start
 //!
 //! ```rust
-//! use validation::Validate;
-//! use validation::traits::Validate as _;
+//! use scrutiny::Validate;
+//! use scrutiny::traits::Validate as _;
 //!
 //! #[derive(Validate)]
 //! struct CreateUser {
@@ -59,8 +59,8 @@
 //! Every rule has a sensible default message. Override per-rule with `message`:
 //!
 //! ```rust
-//! use validation::Validate;
-//! use validation::traits::Validate as _;
+//! use scrutiny::Validate;
+//! use scrutiny::traits::Validate as _;
 //!
 //! #[derive(Validate)]
 //! #[validate(attributes(name = "full name"))]
@@ -84,8 +84,8 @@
 //! Errors use dot-notation paths: `address.city`, `members.0.email`.
 //!
 //! ```rust
-//! use validation::Validate;
-//! use validation::traits::Validate as _;
+//! use scrutiny::Validate;
+//! use scrutiny::traits::Validate as _;
 //!
 //! #[derive(Validate)]
 //! struct Address {
@@ -109,8 +109,8 @@
 //! Newtypes get validation for free — encode your invariants in the type system:
 //!
 //! ```rust
-//! use validation::Validate;
-//! use validation::traits::Validate as _;
+//! use scrutiny::Validate;
+//! use scrutiny::traits::Validate as _;
 //!
 //! #[derive(Validate)]
 //! struct Email(#[validate(email)] String);
@@ -127,8 +127,8 @@
 //! Validate fields per variant. Unit variants always pass.
 //!
 //! ```rust
-//! use validation::Validate;
-//! use validation::traits::Validate as _;
+//! use scrutiny::Validate;
+//! use scrutiny::traits::Validate as _;
 //!
 //! #[derive(Validate)]
 //! enum ContactMethod {
@@ -171,8 +171,8 @@
 //! ## Conditional Validation
 //!
 //! ```rust
-//! use validation::Validate;
-//! use validation::traits::Validate as _;
+//! use scrutiny::Validate;
+//! use scrutiny::traits::Validate as _;
 //!
 //! #[derive(Validate)]
 //! struct Registration {
@@ -236,7 +236,7 @@
 //! **Everyone else** — use [`deserialize::from_json`] to get unified errors:
 //!
 //! ```rust,ignore
-//! use validation::deserialize::from_json;
+//! use scrutiny::deserialize::from_json;
 //!
 //! // id: uuid::Uuid — if "not-a-uuid" is sent, you get:
 //! // {"id": ["invalid type: expected UUID"]}
@@ -257,7 +257,7 @@
 //! }
 //! ```
 
-pub use validation_derive::Validate;
+pub use scrutiny_derive::Validate;
 
 #[cfg(all(feature = "serde_json", feature = "serde_path_to_error"))]
 pub mod deserialize;

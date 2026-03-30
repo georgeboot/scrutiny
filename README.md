@@ -1,4 +1,4 @@
-# validation
+# scrutiny
 
 A powerful, Laravel-inspired validation library for Rust. Brings Laravel's validation DX to the Rust ecosystem using derive macros and the type system — no runtime string parsing.
 
@@ -31,17 +31,17 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-validation = { path = "validation" }
+scrutiny = { path = "scrutiny" }
 
 # For axum integration:
-validation-axum = { path = "validation-axum" }
+scrutiny-axum = { path = "scrutiny-axum" }
 ```
 
 ### Basic Usage
 
 ```rust
-use validation::Validate;
-use validation::traits::Validate as _;
+use scrutiny::Validate;
+use scrutiny::traits::Validate as _;
 
 #[derive(Validate)]
 struct CreateUser {
@@ -272,10 +272,10 @@ If someone sends `{"name": null, "id": "not-a-uuid", "created": "bad"}`:
 
 **Axum users**: `Valid<T>` handles this out of the box.
 
-**Everyone else**: use `validation::deserialize::from_json` to get the same unified errors:
+**Everyone else**: use `scrutiny::deserialize::from_json` to get the same unified errors:
 
 ```rust
-use validation::deserialize::from_json;
+use scrutiny::deserialize::from_json;
 
 match from_json::<CreateUser>(body_bytes) {
     Ok(user) => { /* deserialized AND validated */ }
@@ -294,15 +294,15 @@ async fn handler(
     WithRejection(Json(body), _): WithRejection<Json<CreateUser>, AppError>,
 ) -> Result<impl IntoResponse> { ... }
 
-// After (validation-axum):
-use validation_axum::Valid;
+// After (scrutiny-axum):
+use scrutiny_axum::Valid;
 async fn handler(Valid(body): Valid<CreateUser>) -> impl IntoResponse { ... }
 ```
 
 Validates before your handler runs:
 
 ```rust
-use validation_axum::Valid;
+use scrutiny_axum::Valid;
 
 async fn create_user(Valid(user): Valid<CreateUser>) -> impl IntoResponse {
     // `user` is already validated.
@@ -313,7 +313,7 @@ async fn create_user(Valid(user): Valid<CreateUser>) -> impl IntoResponse {
 **Custom error responses** via trait:
 
 ```rust
-use validation_axum::{ValidWith, ValidationErrorResponse};
+use scrutiny_axum::{ValidWith, ValidationErrorResponse};
 
 struct MyApiError;
 
@@ -452,12 +452,12 @@ Also available: `ValidForm<T>` and `ValidQuery<T>` for form-encoded and query pa
 ## Architecture
 
 ```
-validation/          Core: traits, errors, rule functions
-validation-derive/   Proc macro: #[derive(Validate)]
-validation-axum/     Axum extractors + error response customization
+scrutiny/          Core: traits, errors, rule functions
+scrutiny-derive/   Proc macro: #[derive(Validate)]
+scrutiny-axum/     Axum extractors + error response customization
 ```
 
-The core is framework-agnostic. `validation-axum` adds axum extractors behind a separate crate. The error system uses `ValidationErrors` with dot-notation field paths and is serde-serializable.
+The core is framework-agnostic. `scrutiny-axum` adds axum extractors behind a separate crate. The error system uses `ValidationErrors` with dot-notation field paths and is serde-serializable.
 
 ## License
 

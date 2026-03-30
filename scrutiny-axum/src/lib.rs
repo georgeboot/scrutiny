@@ -1,4 +1,4 @@
-//! Axum integration for the `validation` crate.
+//! Axum integration for the `scrutiny` crate.
 //!
 //! Provides extractors that deserialize **and** validate request data in one step.
 //! Deserialization errors are reported as field-level validation errors — not generic
@@ -17,8 +17,8 @@
 //! # Quick Start
 //!
 //! ```rust,ignore
-//! use validation::Validate;
-//! use validation_axum::Valid;
+//! use scrutiny::Validate;
+//! use scrutiny_axum::Valid;
 //! use axum::{Router, routing::post, response::IntoResponse, Json};
 //! use serde::Deserialize;
 //!
@@ -62,12 +62,12 @@
 //!     WithRejection(Json(body), _): WithRejection<Json<CreateUser>, AppError>,
 //! ) -> Result<impl IntoResponse> { ... }
 //!
-//! // After (validation-axum):
-//! use validation_axum::Valid;
+//! // After (scrutiny-axum):
+//! use scrutiny_axum::Valid;
 //! async fn handler(Valid(body): Valid<CreateUser>) -> impl IntoResponse { ... }
 //!
 //! // With custom error format (replaces AppError):
-//! use validation_axum::ValidWith;
+//! use scrutiny_axum::ValidWith;
 //! async fn handler(r: ValidWith<CreateUser, MyApiError>) -> impl IntoResponse { ... }
 //! ```
 //!
@@ -76,7 +76,7 @@
 //! Implement [`ValidationErrorResponse`] to control the HTTP response format:
 //!
 //! ```rust,ignore
-//! use validation_axum::{ValidWith, ValidationErrorResponse};
+//! use scrutiny_axum::{ValidWith, ValidationErrorResponse};
 //!
 //! struct MyApiError;
 //! impl ValidationErrorResponse for MyApiError {
@@ -93,9 +93,9 @@ use axum::extract::{FromRequest, Request};
 use axum::response::{IntoResponse, Response};
 use http::StatusCode;
 use std::marker::PhantomData;
-use validation::deserialize::deserialize_json;
-use validation::error::{ValidationError, ValidationErrors};
-use validation::traits::Validate;
+use scrutiny::deserialize::deserialize_json;
+use scrutiny::error::{ValidationError, ValidationErrors};
+use scrutiny::traits::Validate;
 
 /// Trait for customizing how validation errors become HTTP responses.
 /// Implement this to use your own error format with `ValidWith<T, E>`.

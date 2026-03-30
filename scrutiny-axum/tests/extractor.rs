@@ -2,8 +2,8 @@ use axum::{Router, routing::post, response::IntoResponse, Json};
 use http::{Request, StatusCode};
 use serde::{Deserialize, Serialize};
 use tower::ServiceExt;
-use validation::Validate;
-use validation_axum::{Valid, ValidWith, ValidationErrorResponse};
+use scrutiny::Validate;
+use scrutiny_axum::{Valid, ValidWith, ValidationErrorResponse};
 
 #[derive(Validate, Deserialize, Serialize)]
 struct CreateUser {
@@ -97,7 +97,7 @@ async fn test_deserialization_error_returns_422() {
 struct CustomApiError;
 
 impl ValidationErrorResponse for CustomApiError {
-    fn from_validation_errors(errors: validation::error::ValidationErrors) -> axum::response::Response {
+    fn from_validation_errors(errors: scrutiny::error::ValidationErrors) -> axum::response::Response {
         let body = serde_json::json!({
             "success": false,
             "code": "VALIDATION_FAILED",

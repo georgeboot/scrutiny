@@ -1,5 +1,5 @@
 [package]
-name = "validation-derive"
+name = "scrutiny-derive"
 version = "0.1.0"
 edition = "2024"
 
