@@ -7,6 +7,7 @@ license = "MIT"
 repository = "https://github.com/georgeboot/scrutiny"
 keywords = ["validation", "axum", "extractor", "form", "web"]
 categories = ["web-programming::http-server"]
+readme = "../README.md"
 
 [dependencies]
 scrutiny = { path = "../scrutiny", features = ["serde", "serde_json", "serde_path_to_error"] }
