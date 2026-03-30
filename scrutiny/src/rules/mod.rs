@@ -9,8 +9,8 @@
 //! - [`mod@format`] — `email`, `url`, `uuid`, `ip`, `date`, `hex_color`, `regex`, etc.
 //! - [`comparison`] — `same`, `different`, `gt`/`gte`/`lt`/`lte`, `in_list`, `distinct`
 
-pub mod string;
-pub mod numeric;
-pub mod format;
 pub mod comparison;
+pub mod format;
+pub mod numeric;
 pub mod presence;
+pub mod string;

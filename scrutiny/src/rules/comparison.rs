@@ -22,22 +22,26 @@ pub fn is_different(a: &FieldValue, b: &FieldValue) -> bool {
 
 /// Check if field value a > field value b.
 pub fn is_gt(a: &FieldValue, b: &FieldValue) -> bool {
-    a.partial_cmp(b).is_some_and(|o| o == std::cmp::Ordering::Greater)
+    a.partial_cmp(b)
+        .is_some_and(|o| o == std::cmp::Ordering::Greater)
 }
 
 /// Check if field value a >= field value b.
 pub fn is_gte(a: &FieldValue, b: &FieldValue) -> bool {
-    a.partial_cmp(b).is_some_and(|o| o != std::cmp::Ordering::Less)
+    a.partial_cmp(b)
+        .is_some_and(|o| o != std::cmp::Ordering::Less)
 }
 
 /// Check if field value a < field value b.
 pub fn is_lt(a: &FieldValue, b: &FieldValue) -> bool {
-    a.partial_cmp(b).is_some_and(|o| o == std::cmp::Ordering::Less)
+    a.partial_cmp(b)
+        .is_some_and(|o| o == std::cmp::Ordering::Less)
 }
 
 /// Check if field value a <= field value b.
 pub fn is_lte(a: &FieldValue, b: &FieldValue) -> bool {
-    a.partial_cmp(b).is_some_and(|o| o != std::cmp::Ordering::Greater)
+    a.partial_cmp(b)
+        .is_some_and(|o| o != std::cmp::Ordering::Greater)
 }
 
 /// Check if a value exists in another field's array.

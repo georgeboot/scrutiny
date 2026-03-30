@@ -31,7 +31,10 @@ pub fn is_alpha_num(value: &str) -> bool {
 
 /// Check if string contains only alphanumeric characters, dashes, and underscores.
 pub fn is_alpha_dash(value: &str) -> bool {
-    !value.is_empty() && value.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+    !value.is_empty()
+        && value
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
 }
 
 /// Check if string is numeric (can be parsed as a number).

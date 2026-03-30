@@ -153,7 +153,10 @@ fn parse_single_rule(input: ParseStream) -> syn::Result<FieldRule> {
         parenthesized!(content in input);
 
         // Check if it's a list of string literals: `in_list("a", "b", "c")`
-        if matches!(name_str.as_str(), "in_list" | "not_in" | "required_with_all" | "required_without_all") {
+        if matches!(
+            name_str.as_str(),
+            "in_list" | "not_in" | "required_with_all" | "required_without_all"
+        ) {
             return parse_list_rule(name_str, &content, span);
         }
 
@@ -187,7 +190,10 @@ fn parse_list_rule(name: String, content: ParseStream, span: Span) -> syn::Resul
                 }
                 continue;
             }
-            return Err(syn::Error::new(ident.span(), "expected string literal or `message`"));
+            return Err(syn::Error::new(
+                ident.span(),
+                "expected string literal or `message`",
+            ));
         }
 
         let lit: LitStr = content.parse()?;
@@ -206,7 +212,11 @@ fn parse_list_rule(name: String, content: ParseStream, span: Span) -> syn::Resul
     })
 }
 
-fn parse_named_params_rule(name: String, content: ParseStream, span: Span) -> syn::Result<FieldRule> {
+fn parse_named_params_rule(
+    name: String,
+    content: ParseStream,
+    span: Span,
+) -> syn::Result<FieldRule> {
     let mut params = Vec::new();
     let mut message = None;
 
@@ -271,11 +281,14 @@ fn parse_literal_value(input: ParseStream) -> syn::Result<String> {
     if input.peek(Token![-]) {
         input.parse::<Token![-]>()?;
         let lit: Lit = input.parse()?;
-        return Ok(format!("-{}", match lit {
-            Lit::Int(i) => i.base10_digits().to_string(),
-            Lit::Float(f) => f.base10_digits().to_string(),
-            _ => return Err(syn::Error::new(input.span(), "expected number after -")),
-        }));
+        return Ok(format!(
+            "-{}",
+            match lit {
+                Lit::Int(i) => i.base10_digits().to_string(),
+                Lit::Float(f) => f.base10_digits().to_string(),
+                _ => return Err(syn::Error::new(input.span(), "expected number after -")),
+            }
+        ));
     }
 
     Err(syn::Error::new(input.span(), "expected a value"))

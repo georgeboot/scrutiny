@@ -1,9 +1,9 @@
-use axum::{Router, routing::post, response::IntoResponse, Json};
+use axum::{Json, Router, response::IntoResponse, routing::post};
 use http::{Request, StatusCode};
-use serde::{Deserialize, Serialize};
-use tower::ServiceExt;
 use scrutiny::Validate;
 use scrutiny_axum::{Valid, ValidWith, ValidationErrorResponse};
+use serde::{Deserialize, Serialize};
+use tower::ServiceExt;
 
 #[derive(Validate, Deserialize, Serialize)]
 struct CreateUser {
@@ -41,7 +41,9 @@ async fn body_to_json(response: axum::response::Response) -> serde_json::Value {
 #[tokio::test]
 async fn test_valid_request() {
     let response = app()
-        .oneshot(json_request(r#"{"email": "test@example.com", "name": "John"}"#))
+        .oneshot(json_request(
+            r#"{"email": "test@example.com", "name": "John"}"#,
+        ))
         .await
         .unwrap();
 
@@ -97,7 +99,9 @@ async fn test_deserialization_error_returns_422() {
 struct CustomApiError;
 
 impl ValidationErrorResponse for CustomApiError {
-    fn from_validation_errors(errors: scrutiny::error::ValidationErrors) -> axum::response::Response {
+    fn from_validation_errors(
+        errors: scrutiny::error::ValidationErrors,
+    ) -> axum::response::Response {
         let body = serde_json::json!({
             "success": false,
             "code": "VALIDATION_FAILED",
@@ -105,7 +109,6 @@ impl ValidationErrorResponse for CustomApiError {
         });
         (StatusCode::BAD_REQUEST, Json(body)).into_response()
     }
-
 }
 
 async fn custom_handler(result: ValidWith<CreateUser, CustomApiError>) -> impl IntoResponse {
@@ -154,7 +157,9 @@ async fn test_typed_field_deser_error_is_field_level() {
                 .method("POST")
                 .uri("/typed")
                 .header("content-type", "application/json")
-                .body(axum::body::Body::from(r#"{"name": "John", "id": "not-a-number"}"#))
+                .body(axum::body::Body::from(
+                    r#"{"name": "John", "id": "not-a-number"}"#,
+                ))
                 .unwrap(),
         )
         .await
@@ -164,7 +169,10 @@ async fn test_typed_field_deser_error_is_field_level() {
 
     let json = body_to_json(response).await;
     // The error should be on the "id" field, not a generic deserialization error
-    assert!(json["errors"]["id"].is_array(), "expected field-level error on 'id', got: {json}");
+    assert!(
+        json["errors"]["id"].is_array(),
+        "expected field-level error on 'id', got: {json}"
+    );
     let id_errors = json["errors"]["id"].as_array().unwrap();
     assert_eq!(id_errors.len(), 1);
 }

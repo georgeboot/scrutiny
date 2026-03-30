@@ -20,7 +20,9 @@ use regex::Regex;
 /// Validate regex pattern match. Requires the `regex` feature.
 #[cfg(feature = "regex")]
 pub fn matches_regex(value: &str, pattern: &str) -> bool {
-    Regex::new(pattern).map(|re| re.is_match(value)).unwrap_or(false)
+    Regex::new(pattern)
+        .map(|re| re.is_match(value))
+        .unwrap_or(false)
 }
 
 /// Validate value does NOT match regex. Requires the `regex` feature.
@@ -130,13 +132,19 @@ pub fn is_after(value: &str, other: &str) -> bool {
 /// Date is before or equal to another date (ISO 8601). Requires the `chrono` feature.
 #[cfg(feature = "chrono")]
 pub fn is_before_or_equal(value: &str, other: &str) -> bool {
-    matches!(compare_dates(value, other), Some(std::cmp::Ordering::Less | std::cmp::Ordering::Equal))
+    matches!(
+        compare_dates(value, other),
+        Some(std::cmp::Ordering::Less | std::cmp::Ordering::Equal)
+    )
 }
 
 /// Date is after or equal to another date (ISO 8601). Requires the `chrono` feature.
 #[cfg(feature = "chrono")]
 pub fn is_after_or_equal(value: &str, other: &str) -> bool {
-    matches!(compare_dates(value, other), Some(std::cmp::Ordering::Greater | std::cmp::Ordering::Equal))
+    matches!(
+        compare_dates(value, other),
+        Some(std::cmp::Ordering::Greater | std::cmp::Ordering::Equal)
+    )
 }
 
 /// Date equals another date (ISO 8601). Requires the `chrono` feature.
@@ -174,7 +182,10 @@ pub fn is_mac_address(value: &str) -> bool {
     } else {
         return false;
     };
-    parts.len() == 6 && parts.iter().all(|p| p.len() == 2 && p.chars().all(|c| c.is_ascii_hexdigit()))
+    parts.len() == 6
+        && parts
+            .iter()
+            .all(|p| p.len() == 2 && p.chars().all(|c| c.is_ascii_hexdigit()))
 }
 
 /// Validate JSON string using `serde_json`. Requires the `serde_json` feature.

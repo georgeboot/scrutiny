@@ -92,10 +92,10 @@
 use axum::extract::{FromRequest, Request};
 use axum::response::{IntoResponse, Response};
 use http::StatusCode;
-use std::marker::PhantomData;
 use scrutiny::deserialize::deserialize_json;
 use scrutiny::error::{ValidationError, ValidationErrors};
 use scrutiny::traits::Validate;
+use std::marker::PhantomData;
 
 /// Trait for customizing how validation errors become HTTP responses.
 /// Implement this to use your own error format with `ValidWith<T, E>`.
@@ -127,7 +127,10 @@ impl ValidationErrorResponse for DefaultErrorResponse {
 fn deserialize_query<T: serde::de::DeserializeOwned>(query: &str) -> Result<T, ValidationErrors> {
     serde_html_form::from_str::<T>(query).map_err(|err| {
         let mut errors = ValidationErrors::new();
-        errors.add("_query", ValidationError::new("deserialization", err.to_string()));
+        errors.add(
+            "_query",
+            ValidationError::new("deserialization", err.to_string()),
+        );
         errors
     })
 }
@@ -163,8 +166,8 @@ where
                 DefaultErrorResponse::from_validation_errors(errors)
             })?;
 
-        let value: T = deserialize_json(&body)
-            .map_err(DefaultErrorResponse::from_validation_errors)?;
+        let value: T =
+            deserialize_json(&body).map_err(DefaultErrorResponse::from_validation_errors)?;
 
         value
             .validate()
@@ -183,10 +186,7 @@ where
 ///     let user = result.into_inner();
 /// }
 /// ```
-pub struct ValidWith<T, E: ValidationErrorResponse = DefaultErrorResponse>(
-    pub T,
-    PhantomData<E>,
-);
+pub struct ValidWith<T, E: ValidationErrorResponse = DefaultErrorResponse>(pub T, PhantomData<E>);
 
 impl<T, E: ValidationErrorResponse> ValidWith<T, E> {
     pub fn into_inner(self) -> T {
@@ -211,12 +211,9 @@ where
                 E::from_validation_errors(errors)
             })?;
 
-        let value: T = deserialize_json(&body)
-            .map_err(E::from_validation_errors)?;
+        let value: T = deserialize_json(&body).map_err(E::from_validation_errors)?;
 
-        value
-            .validate()
-            .map_err(E::from_validation_errors)?;
+        value.validate().map_err(E::from_validation_errors)?;
 
         Ok(ValidWith(value, PhantomData))
     }
@@ -251,8 +248,8 @@ where
             DefaultErrorResponse::from_validation_errors(errors)
         })?;
 
-        let value: T = deserialize_query(query_str)
-            .map_err(DefaultErrorResponse::from_validation_errors)?;
+        let value: T =
+            deserialize_query(query_str).map_err(DefaultErrorResponse::from_validation_errors)?;
 
         value
             .validate()
@@ -287,8 +284,8 @@ where
     async fn from_request(req: Request, _state: &S) -> Result<Self, Self::Rejection> {
         let query_str = req.uri().query().unwrap_or("");
 
-        let value: T = deserialize_query(query_str)
-            .map_err(DefaultErrorResponse::from_validation_errors)?;
+        let value: T =
+            deserialize_query(query_str).map_err(DefaultErrorResponse::from_validation_errors)?;
 
         value
             .validate()

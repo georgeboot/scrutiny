@@ -1,8 +1,8 @@
 use proc_macro::TokenStream;
-use syn::{parse_macro_input, DeriveInput};
+use syn::{DeriveInput, parse_macro_input};
 
-mod parse;
 mod codegen;
+mod parse;
 
 #[proc_macro_derive(Validate, attributes(validate))]
 pub fn derive_validate(input: TokenStream) -> TokenStream {

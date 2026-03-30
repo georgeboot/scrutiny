@@ -44,7 +44,10 @@ impl ValidationErrors {
     }
 
     pub fn add(&mut self, field: &str, error: ValidationError) {
-        self.errors.entry(field.to_string()).or_default().push(error);
+        self.errors
+            .entry(field.to_string())
+            .or_default()
+            .push(error);
     }
 
     pub fn is_empty(&self) -> bool {
@@ -85,9 +88,7 @@ impl ValidationErrors {
     pub fn first_messages(&self) -> HashMap<String, String> {
         self.errors
             .iter()
-            .filter_map(|(field, errs)| {
-                errs.first().map(|e| (field.clone(), e.message.clone()))
-            })
+            .filter_map(|(field, errs)| errs.first().map(|e| (field.clone(), e.message.clone())))
             .collect()
     }
 }

@@ -14,7 +14,10 @@ pub fn expand(input: DeriveInput) -> syn::Result<TokenStream> {
     match &input.data {
         Data::Struct(data) => expand_struct(name, &struct_attrs, &data.fields),
         Data::Enum(data) => expand_enum(name, &struct_attrs, data),
-        Data::Union(_) => Err(syn::Error::new_spanned(&input, "Validate cannot be derived for unions")),
+        Data::Union(_) => Err(syn::Error::new_spanned(
+            &input,
+            "Validate cannot be derived for unions",
+        )),
     }
 }
 
@@ -162,7 +165,9 @@ fn expand_enum(
 
                 if !has_rules {
                     // No validation needed for this variant
-                    let field_names: Vec<_> = named.named.iter()
+                    let field_names: Vec<_> = named
+                        .named
+                        .iter()
                         .map(|f| f.ident.as_ref().unwrap())
                         .collect();
                     variant_arms.push(quote! {
@@ -171,7 +176,9 @@ fn expand_enum(
                     continue;
                 }
 
-                let field_bindings: Vec<_> = named.named.iter()
+                let field_bindings: Vec<_> = named
+                    .named
+                    .iter()
                     .map(|f| f.ident.as_ref().unwrap())
                     .collect();
 
@@ -205,7 +212,14 @@ fn expand_enum(
                     // For enums, we need to generate checks that use the bound variable
                     // directly, not `self.field`. We create a temporary struct-like scope.
                     for rule in &real_rules {
-                        let check = gen_enum_field_check(rule, fi, &display_name, has_bail, &field_ident, field_name)?;
+                        let check = gen_enum_field_check(
+                            rule,
+                            fi,
+                            &display_name,
+                            has_bail,
+                            &field_ident,
+                            field_name,
+                        )?;
                         checks.push(check);
                     }
                 }
@@ -251,7 +265,14 @@ fn expand_enum(
 
                     let field_name = &fi.name;
                     for rule in &real_rules {
-                        let check = gen_enum_field_check(rule, &fi, &display_name, has_bail, &binding, field_name)?;
+                        let check = gen_enum_field_check(
+                            rule,
+                            &fi,
+                            &display_name,
+                            has_bail,
+                            &binding,
+                            field_name,
+                        )?;
                         checks.push(check);
                     }
                 }
@@ -299,7 +320,9 @@ fn expand_enum(
     })
 }
 
-fn parse_named_fields(fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>) -> syn::Result<Vec<FieldInfo>> {
+fn parse_named_fields(
+    fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>,
+) -> syn::Result<Vec<FieldInfo>> {
     let mut field_infos = Vec::new();
     for field in fields {
         let name = field.ident.as_ref().unwrap().to_string();
@@ -334,7 +357,9 @@ fn classify_type(ty: &syn::Type) -> FieldKind {
         let name = segment.ident.to_string();
         return match name.as_str() {
             "String" => FieldKind::String,
-            "i8" | "i16" | "i32" | "i64" | "u8" | "u16" | "u32" | "u64" | "isize" | "usize" => FieldKind::Integer,
+            "i8" | "i16" | "i32" | "i64" | "u8" | "u16" | "u32" | "u64" | "isize" | "usize" => {
+                FieldKind::Integer
+            }
             "f32" | "f64" => FieldKind::Float,
             "Vec" => FieldKind::Vec,
             _ => FieldKind::Other,
@@ -361,10 +386,18 @@ fn is_convertible_type(ty: &syn::Type) -> bool {
         let name = segment.ident.to_string();
         return matches!(
             name.as_str(),
-            "String" | "bool"
-                | "i8" | "i16" | "i32" | "i64"
-                | "u8" | "u16" | "u32" | "u64"
-                | "f32" | "f64"
+            "String"
+                | "bool"
+                | "i8"
+                | "i16"
+                | "i32"
+                | "i64"
+                | "u8"
+                | "u16"
+                | "u32"
+                | "u64"
+                | "f32"
+                | "f64"
         );
     }
     false
@@ -553,9 +586,10 @@ fn gen_rule_check(
 
     match rule.name.as_str() {
         "required" => {
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field is required.", display_name)
-            });
+            let msg = rule
+                .message
+                .clone()
+                .unwrap_or_else(|| format!("The {} field is required.", display_name));
             if field.is_option {
                 Ok(quote! {
                     if !::scrutiny::rules::presence::is_present_option(&self.#field_ident) {
@@ -578,112 +612,224 @@ fn gen_rule_check(
             let msg = rule.message.clone().unwrap_or_else(|| {
                 format!("The {} field must be a valid email address.", display_name)
             });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "email", has_bail,
-                quote! { ::scrutiny::rules::format::is_email(val) })
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "email",
+                has_bail,
+                quote! { ::scrutiny::rules::format::is_email(val) },
+            )
         }
 
         "url" => {
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must be a valid URL.", display_name)
-            });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "url", has_bail,
-                quote! { ::scrutiny::rules::format::is_url(val) })
+            let msg = rule
+                .message
+                .clone()
+                .unwrap_or_else(|| format!("The {} field must be a valid URL.", display_name));
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "url",
+                has_bail,
+                quote! { ::scrutiny::rules::format::is_url(val) },
+            )
         }
 
         "alpha" => {
             let msg = rule.message.clone().unwrap_or_else(|| {
                 format!("The {} field must only contain letters.", display_name)
             });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "alpha", has_bail,
-                quote! { ::scrutiny::rules::string::is_alpha(val) })
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "alpha",
+                has_bail,
+                quote! { ::scrutiny::rules::string::is_alpha(val) },
+            )
         }
 
         "alpha_num" => {
             let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must only contain letters and numbers.", display_name)
+                format!(
+                    "The {} field must only contain letters and numbers.",
+                    display_name
+                )
             });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "alpha_num", has_bail,
-                quote! { ::scrutiny::rules::string::is_alpha_num(val) })
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "alpha_num",
+                has_bail,
+                quote! { ::scrutiny::rules::string::is_alpha_num(val) },
+            )
         }
 
         "alpha_dash" => {
             let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must only contain letters, numbers, dashes, and underscores.", display_name)
+                format!(
+                    "The {} field must only contain letters, numbers, dashes, and underscores.",
+                    display_name
+                )
             });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "alpha_dash", has_bail,
-                quote! { ::scrutiny::rules::string::is_alpha_dash(val) })
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "alpha_dash",
+                has_bail,
+                quote! { ::scrutiny::rules::string::is_alpha_dash(val) },
+            )
         }
 
         "numeric" => {
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must be a number.", display_name)
-            });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "numeric", has_bail,
-                quote! { ::scrutiny::rules::string::is_numeric(val) })
+            let msg = rule
+                .message
+                .clone()
+                .unwrap_or_else(|| format!("The {} field must be a number.", display_name));
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "numeric",
+                has_bail,
+                quote! { ::scrutiny::rules::string::is_numeric(val) },
+            )
         }
 
         "ascii" => {
             let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must only contain ASCII characters.", display_name)
+                format!(
+                    "The {} field must only contain ASCII characters.",
+                    display_name
+                )
             });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "ascii", has_bail,
-                quote! { ::scrutiny::rules::format::is_ascii(val) })
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "ascii",
+                has_bail,
+                quote! { ::scrutiny::rules::format::is_ascii(val) },
+            )
         }
 
         "uuid" => {
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must be a valid UUID.", display_name)
-            });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "uuid", has_bail,
-                quote! { ::scrutiny::rules::format::is_uuid(val) })
+            let msg = rule
+                .message
+                .clone()
+                .unwrap_or_else(|| format!("The {} field must be a valid UUID.", display_name));
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "uuid",
+                has_bail,
+                quote! { ::scrutiny::rules::format::is_uuid(val) },
+            )
         }
 
         "ulid" => {
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must be a valid ULID.", display_name)
-            });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "ulid", has_bail,
-                quote! { ::scrutiny::rules::format::is_ulid(val) })
+            let msg = rule
+                .message
+                .clone()
+                .unwrap_or_else(|| format!("The {} field must be a valid ULID.", display_name));
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "ulid",
+                has_bail,
+                quote! { ::scrutiny::rules::format::is_ulid(val) },
+            )
         }
 
         "ip" => {
             let msg = rule.message.clone().unwrap_or_else(|| {
                 format!("The {} field must be a valid IP address.", display_name)
             });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "ip", has_bail,
-                quote! { ::scrutiny::rules::format::is_ip(val) })
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "ip",
+                has_bail,
+                quote! { ::scrutiny::rules::format::is_ip(val) },
+            )
         }
 
         "ipv4" => {
             let msg = rule.message.clone().unwrap_or_else(|| {
                 format!("The {} field must be a valid IPv4 address.", display_name)
             });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "ipv4", has_bail,
-                quote! { ::scrutiny::rules::format::is_ipv4(val) })
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "ipv4",
+                has_bail,
+                quote! { ::scrutiny::rules::format::is_ipv4(val) },
+            )
         }
 
         "ipv6" => {
             let msg = rule.message.clone().unwrap_or_else(|| {
                 format!("The {} field must be a valid IPv6 address.", display_name)
             });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "ipv6", has_bail,
-                quote! { ::scrutiny::rules::format::is_ipv6(val) })
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "ipv6",
+                has_bail,
+                quote! { ::scrutiny::rules::format::is_ipv6(val) },
+            )
         }
 
         "json" => {
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must be valid JSON.", display_name)
-            });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "json", has_bail,
-                quote! { ::scrutiny::rules::format::is_json(val) })
+            let msg = rule
+                .message
+                .clone()
+                .unwrap_or_else(|| format!("The {} field must be valid JSON.", display_name));
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "json",
+                has_bail,
+                quote! { ::scrutiny::rules::format::is_json(val) },
+            )
         }
 
         "mac_address" => {
             let msg = rule.message.clone().unwrap_or_else(|| {
                 format!("The {} field must be a valid MAC address.", display_name)
             });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "mac_address", has_bail,
-                quote! { ::scrutiny::rules::format::is_mac_address(val) })
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "mac_address",
+                has_bail,
+                quote! { ::scrutiny::rules::format::is_mac_address(val) },
+            )
         }
 
         "min" => {
@@ -694,24 +840,56 @@ fn gen_rule_check(
                     let msg = rule.message.clone().unwrap_or_else(|| {
                         format!("The {} field must be at least {}.", display_name, value_str)
                     });
-                    gen_numeric_rule_check(field, &field_ident, field_name, &msg, "min", has_bail, &value_str,
-                        |v| quote! { *val >= #v })
+                    gen_numeric_rule_check(
+                        field,
+                        &field_ident,
+                        field_name,
+                        &msg,
+                        "min",
+                        has_bail,
+                        &value_str,
+                        |v| quote! { *val >= #v },
+                    )
                 }
                 FieldKind::Vec => {
                     let msg = rule.message.clone().unwrap_or_else(|| {
-                        format!("The {} field must have at least {} items.", display_name, value_str)
+                        format!(
+                            "The {} field must have at least {} items.",
+                            display_name, value_str
+                        )
                     });
-                    let min_val: usize = value_str.parse().map_err(|_| syn::Error::new(rule.span, "min must be an integer for Vec"))?;
-                    gen_vec_rule_check(field, &field_ident, field_name, &msg, "min", has_bail,
-                        quote! { val.len() >= #min_val })
+                    let min_val: usize = value_str.parse().map_err(|_| {
+                        syn::Error::new(rule.span, "min must be an integer for Vec")
+                    })?;
+                    gen_vec_rule_check(
+                        field,
+                        &field_ident,
+                        field_name,
+                        &msg,
+                        "min",
+                        has_bail,
+                        quote! { val.len() >= #min_val },
+                    )
                 }
                 _ => {
                     let msg = rule.message.clone().unwrap_or_else(|| {
-                        format!("The {} field must be at least {} characters.", display_name, value_str)
+                        format!(
+                            "The {} field must be at least {} characters.",
+                            display_name, value_str
+                        )
                     });
-                    let min_val: usize = value_str.parse().map_err(|_| syn::Error::new(rule.span, "min must be a number"))?;
-                    gen_string_rule_check(field, &field_ident, field_name, &msg, "min", has_bail,
-                        quote! { ::scrutiny::rules::string::check_min_length(val, #min_val) })
+                    let min_val: usize = value_str
+                        .parse()
+                        .map_err(|_| syn::Error::new(rule.span, "min must be a number"))?;
+                    gen_string_rule_check(
+                        field,
+                        &field_ident,
+                        field_name,
+                        &msg,
+                        "min",
+                        has_bail,
+                        quote! { ::scrutiny::rules::string::check_min_length(val, #min_val) },
+                    )
                 }
             }
         }
@@ -724,24 +902,56 @@ fn gen_rule_check(
                     let msg = rule.message.clone().unwrap_or_else(|| {
                         format!("The {} field must not exceed {}.", display_name, value_str)
                     });
-                    gen_numeric_rule_check(field, &field_ident, field_name, &msg, "max", has_bail, &value_str,
-                        |v| quote! { *val <= #v })
+                    gen_numeric_rule_check(
+                        field,
+                        &field_ident,
+                        field_name,
+                        &msg,
+                        "max",
+                        has_bail,
+                        &value_str,
+                        |v| quote! { *val <= #v },
+                    )
                 }
                 FieldKind::Vec => {
                     let msg = rule.message.clone().unwrap_or_else(|| {
-                        format!("The {} field must not have more than {} items.", display_name, value_str)
+                        format!(
+                            "The {} field must not have more than {} items.",
+                            display_name, value_str
+                        )
                     });
-                    let max_val: usize = value_str.parse().map_err(|_| syn::Error::new(rule.span, "max must be an integer for Vec"))?;
-                    gen_vec_rule_check(field, &field_ident, field_name, &msg, "max", has_bail,
-                        quote! { val.len() <= #max_val })
+                    let max_val: usize = value_str.parse().map_err(|_| {
+                        syn::Error::new(rule.span, "max must be an integer for Vec")
+                    })?;
+                    gen_vec_rule_check(
+                        field,
+                        &field_ident,
+                        field_name,
+                        &msg,
+                        "max",
+                        has_bail,
+                        quote! { val.len() <= #max_val },
+                    )
                 }
                 _ => {
                     let msg = rule.message.clone().unwrap_or_else(|| {
-                        format!("The {} field must not exceed {} characters.", display_name, value_str)
+                        format!(
+                            "The {} field must not exceed {} characters.",
+                            display_name, value_str
+                        )
                     });
-                    let max_val: usize = value_str.parse().map_err(|_| syn::Error::new(rule.span, "max must be a number"))?;
-                    gen_string_rule_check(field, &field_ident, field_name, &msg, "max", has_bail,
-                        quote! { ::scrutiny::rules::string::check_max_length(val, #max_val) })
+                    let max_val: usize = value_str
+                        .parse()
+                        .map_err(|_| syn::Error::new(rule.span, "max must be a number"))?;
+                    gen_string_rule_check(
+                        field,
+                        &field_ident,
+                        field_name,
+                        &msg,
+                        "max",
+                        has_bail,
+                        quote! { ::scrutiny::rules::string::check_max_length(val, #max_val) },
+                    )
                 }
             }
         }
@@ -749,9 +959,15 @@ fn gen_rule_check(
         "between" => {
             let (min_str, max_str) = match &rule.params {
                 RuleParams::Named(params) => {
-                    let min = params.iter().find(|(k, _)| k == "min").map(|(_, v)| v.clone())
+                    let min = params
+                        .iter()
+                        .find(|(k, _)| k == "min")
+                        .map(|(_, v)| v.clone())
                         .ok_or_else(|| syn::Error::new(rule.span, "between requires min"))?;
-                    let max = params.iter().find(|(k, _)| k == "max").map(|(_, v)| v.clone())
+                    let max = params
+                        .iter()
+                        .find(|(k, _)| k == "max")
+                        .map(|(_, v)| v.clone())
                         .ok_or_else(|| syn::Error::new(rule.span, "between requires max"))?;
                     (min, max)
                 }
@@ -761,31 +977,73 @@ fn gen_rule_check(
             match kind {
                 FieldKind::Integer | FieldKind::Float => {
                     let msg = rule.message.clone().unwrap_or_else(|| {
-                        format!("The {} field must be between {} and {}.", display_name, min_str, max_str)
+                        format!(
+                            "The {} field must be between {} and {}.",
+                            display_name, min_str, max_str
+                        )
                     });
-                    let min_lit: proc_macro2::TokenStream = min_str.parse().map_err(|_| syn::Error::new(rule.span, "between min must be a number"))?;
-                    let max_lit: proc_macro2::TokenStream = max_str.parse().map_err(|_| syn::Error::new(rule.span, "between max must be a number"))?;
+                    let min_lit: proc_macro2::TokenStream = min_str
+                        .parse()
+                        .map_err(|_| syn::Error::new(rule.span, "between min must be a number"))?;
+                    let max_lit: proc_macro2::TokenStream = max_str
+                        .parse()
+                        .map_err(|_| syn::Error::new(rule.span, "between max must be a number"))?;
                     let inner_ty = field.inner_type.as_ref().unwrap_or(&field.ty);
-                    gen_numeric_rule_check_raw(field, &field_ident, field_name, &msg, "between", has_bail,
-                        quote! { *val >= (#min_lit as #inner_ty) && *val <= (#max_lit as #inner_ty) })
+                    gen_numeric_rule_check_raw(
+                        field,
+                        &field_ident,
+                        field_name,
+                        &msg,
+                        "between",
+                        has_bail,
+                        quote! { *val >= (#min_lit as #inner_ty) && *val <= (#max_lit as #inner_ty) },
+                    )
                 }
                 FieldKind::Vec => {
                     let msg = rule.message.clone().unwrap_or_else(|| {
-                        format!("The {} field must have between {} and {} items.", display_name, min_str, max_str)
+                        format!(
+                            "The {} field must have between {} and {} items.",
+                            display_name, min_str, max_str
+                        )
                     });
-                    let min_val: usize = min_str.parse().map_err(|_| syn::Error::new(rule.span, "between min must be integer for Vec"))?;
-                    let max_val: usize = max_str.parse().map_err(|_| syn::Error::new(rule.span, "between max must be integer for Vec"))?;
-                    gen_vec_rule_check(field, &field_ident, field_name, &msg, "between", has_bail,
-                        quote! { val.len() >= #min_val && val.len() <= #max_val })
+                    let min_val: usize = min_str.parse().map_err(|_| {
+                        syn::Error::new(rule.span, "between min must be integer for Vec")
+                    })?;
+                    let max_val: usize = max_str.parse().map_err(|_| {
+                        syn::Error::new(rule.span, "between max must be integer for Vec")
+                    })?;
+                    gen_vec_rule_check(
+                        field,
+                        &field_ident,
+                        field_name,
+                        &msg,
+                        "between",
+                        has_bail,
+                        quote! { val.len() >= #min_val && val.len() <= #max_val },
+                    )
                 }
                 _ => {
                     let msg = rule.message.clone().unwrap_or_else(|| {
-                        format!("The {} field must be between {} and {} characters.", display_name, min_str, max_str)
+                        format!(
+                            "The {} field must be between {} and {} characters.",
+                            display_name, min_str, max_str
+                        )
                     });
-                    let min_val: usize = min_str.parse().map_err(|_| syn::Error::new(rule.span, "between min must be integer"))?;
-                    let max_val: usize = max_str.parse().map_err(|_| syn::Error::new(rule.span, "between max must be integer"))?;
-                    gen_string_rule_check(field, &field_ident, field_name, &msg, "between", has_bail,
-                        quote! { ::scrutiny::rules::string::check_between_length(val, #min_val, #max_val) })
+                    let min_val: usize = min_str
+                        .parse()
+                        .map_err(|_| syn::Error::new(rule.span, "between min must be integer"))?;
+                    let max_val: usize = max_str
+                        .parse()
+                        .map_err(|_| syn::Error::new(rule.span, "between max must be integer"))?;
+                    gen_string_rule_check(
+                        field,
+                        &field_ident,
+                        field_name,
+                        &msg,
+                        "between",
+                        has_bail,
+                        quote! { ::scrutiny::rules::string::check_between_length(val, #min_val, #max_val) },
+                    )
                 }
             }
         }
@@ -800,42 +1058,77 @@ fn gen_rule_check(
                     .ok_or_else(|| syn::Error::new(rule.span, "regex requires a pattern"))?,
                 _ => return Err(syn::Error::new(rule.span, "regex requires a pattern")),
             };
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} format is invalid.", display_name)
-            });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "regex", has_bail,
-                quote! { ::scrutiny::rules::format::matches_regex(val, #pattern) })
+            let msg = rule
+                .message
+                .clone()
+                .unwrap_or_else(|| format!("The {} format is invalid.", display_name));
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "regex",
+                has_bail,
+                quote! { ::scrutiny::rules::format::matches_regex(val, #pattern) },
+            )
         }
 
         "in_list" => {
             let items = match &rule.params {
                 RuleParams::List(items) => items.clone(),
-                _ => return Err(syn::Error::new(rule.span, "in_list requires a list of values")),
+                _ => {
+                    return Err(syn::Error::new(
+                        rule.span,
+                        "in_list requires a list of values",
+                    ));
+                }
             };
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The selected {} is invalid.", display_name)
-            });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "in_list", has_bail,
-                quote! { ::scrutiny::rules::comparison::is_in(val, &[#(#items),*]) })
+            let msg = rule
+                .message
+                .clone()
+                .unwrap_or_else(|| format!("The selected {} is invalid.", display_name));
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "in_list",
+                has_bail,
+                quote! { ::scrutiny::rules::comparison::is_in(val, &[#(#items),*]) },
+            )
         }
 
         "not_in" => {
             let items = match &rule.params {
                 RuleParams::List(items) => items.clone(),
-                _ => return Err(syn::Error::new(rule.span, "not_in requires a list of values")),
+                _ => {
+                    return Err(syn::Error::new(
+                        rule.span,
+                        "not_in requires a list of values",
+                    ));
+                }
             };
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The selected {} is invalid.", display_name)
-            });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "not_in", has_bail,
-                quote! { ::scrutiny::rules::comparison::is_not_in(val, &[#(#items),*]) })
+            let msg = rule
+                .message
+                .clone()
+                .unwrap_or_else(|| format!("The selected {} is invalid.", display_name));
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "not_in",
+                has_bail,
+                quote! { ::scrutiny::rules::comparison::is_not_in(val, &[#(#items),*]) },
+            )
         }
 
         "confirmed" => {
             let confirmation_field = format!("{}_confirmation", field.name);
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} confirmation does not match.", display_name)
-            });
+            let msg = rule
+                .message
+                .clone()
+                .unwrap_or_else(|| format!("The {} confirmation does not match.", display_name));
             Ok(quote! {
                 {
                     let a = ::scrutiny::traits::FieldAccess::get_field_value(self, #field_name);
@@ -872,11 +1165,19 @@ fn gen_rule_check(
         "different" => {
             let other = match &rule.params {
                 RuleParams::Value(v) => v.clone(),
-                _ => return Err(syn::Error::new(rule.span, "different requires a field name")),
+                _ => {
+                    return Err(syn::Error::new(
+                        rule.span,
+                        "different requires a field name",
+                    ));
+                }
             };
             let other_display = other.replace('_', " ");
             let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must be different from {}.", display_name, other_display)
+                format!(
+                    "The {} field must be different from {}.",
+                    display_name, other_display
+                )
             });
             Ok(quote! {
                 {
@@ -893,17 +1194,29 @@ fn gen_rule_check(
         "required_if" => {
             let (cond_field, cond_value) = match &rule.params {
                 RuleParams::Named(params) => {
-                    let f = params.iter().find(|(k, _)| k == "field").map(|(_, v)| v.clone())
+                    let f = params
+                        .iter()
+                        .find(|(k, _)| k == "field")
+                        .map(|(_, v)| v.clone())
                         .ok_or_else(|| syn::Error::new(rule.span, "required_if requires field"))?;
-                    let v = params.iter().find(|(k, _)| k == "value").map(|(_, v)| v.clone())
+                    let v = params
+                        .iter()
+                        .find(|(k, _)| k == "value")
+                        .map(|(_, v)| v.clone())
                         .ok_or_else(|| syn::Error::new(rule.span, "required_if requires value"))?;
                     (f, v)
                 }
-                _ => return Err(syn::Error::new(rule.span, "required_if requires field and value")),
+                _ => {
+                    return Err(syn::Error::new(
+                        rule.span,
+                        "required_if requires field and value",
+                    ));
+                }
             };
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field is required.", display_name)
-            });
+            let msg = rule
+                .message
+                .clone()
+                .unwrap_or_else(|| format!("The {} field is required.", display_name));
             if field.is_option {
                 Ok(quote! {
                     {
@@ -934,17 +1247,33 @@ fn gen_rule_check(
         "required_unless" => {
             let (cond_field, cond_value) = match &rule.params {
                 RuleParams::Named(params) => {
-                    let f = params.iter().find(|(k, _)| k == "field").map(|(_, v)| v.clone())
-                        .ok_or_else(|| syn::Error::new(rule.span, "required_unless requires field"))?;
-                    let v = params.iter().find(|(k, _)| k == "value").map(|(_, v)| v.clone())
-                        .ok_or_else(|| syn::Error::new(rule.span, "required_unless requires value"))?;
+                    let f = params
+                        .iter()
+                        .find(|(k, _)| k == "field")
+                        .map(|(_, v)| v.clone())
+                        .ok_or_else(|| {
+                            syn::Error::new(rule.span, "required_unless requires field")
+                        })?;
+                    let v = params
+                        .iter()
+                        .find(|(k, _)| k == "value")
+                        .map(|(_, v)| v.clone())
+                        .ok_or_else(|| {
+                            syn::Error::new(rule.span, "required_unless requires value")
+                        })?;
                     (f, v)
                 }
-                _ => return Err(syn::Error::new(rule.span, "required_unless requires field and value")),
+                _ => {
+                    return Err(syn::Error::new(
+                        rule.span,
+                        "required_unless requires field and value",
+                    ));
+                }
             };
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field is required.", display_name)
-            });
+            let msg = rule
+                .message
+                .clone()
+                .unwrap_or_else(|| format!("The {} field is required.", display_name));
             if field.is_option {
                 Ok(quote! {
                     {
@@ -975,11 +1304,17 @@ fn gen_rule_check(
         "required_with" => {
             let other = match &rule.params {
                 RuleParams::Value(v) => v.clone(),
-                _ => return Err(syn::Error::new(rule.span, "required_with requires a field name")),
+                _ => {
+                    return Err(syn::Error::new(
+                        rule.span,
+                        "required_with requires a field name",
+                    ));
+                }
             };
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field is required.", display_name)
-            });
+            let msg = rule
+                .message
+                .clone()
+                .unwrap_or_else(|| format!("The {} field is required.", display_name));
             if field.is_option {
                 Ok(quote! {
                     {
@@ -1010,11 +1345,17 @@ fn gen_rule_check(
         "required_without" => {
             let other = match &rule.params {
                 RuleParams::Value(v) => v.clone(),
-                _ => return Err(syn::Error::new(rule.span, "required_without requires a field name")),
+                _ => {
+                    return Err(syn::Error::new(
+                        rule.span,
+                        "required_without requires a field name",
+                    ));
+                }
             };
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field is required.", display_name)
-            });
+            let msg = rule
+                .message
+                .clone()
+                .unwrap_or_else(|| format!("The {} field is required.", display_name));
             if field.is_option {
                 Ok(quote! {
                     {
@@ -1046,40 +1387,62 @@ fn gen_rule_check(
             let prefix = match &rule.params {
                 RuleParams::Value(v) => v.clone(),
                 RuleParams::Named(params) => params
-                    .iter().find(|(k, _)| k == "value").map(|(_, v)| v.clone())
+                    .iter()
+                    .find(|(k, _)| k == "value")
+                    .map(|(_, v)| v.clone())
                     .ok_or_else(|| syn::Error::new(rule.span, "starts_with requires a value"))?,
                 _ => return Err(syn::Error::new(rule.span, "starts_with requires a value")),
             };
             let msg = rule.message.clone().unwrap_or_else(|| {
                 format!("The {} field must start with {}.", display_name, prefix)
             });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "starts_with", has_bail,
-                quote! { ::scrutiny::rules::string::starts_with(val, #prefix) })
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "starts_with",
+                has_bail,
+                quote! { ::scrutiny::rules::string::starts_with(val, #prefix) },
+            )
         }
 
         "ends_with" => {
             let suffix = match &rule.params {
                 RuleParams::Value(v) => v.clone(),
                 RuleParams::Named(params) => params
-                    .iter().find(|(k, _)| k == "value").map(|(_, v)| v.clone())
+                    .iter()
+                    .find(|(k, _)| k == "value")
+                    .map(|(_, v)| v.clone())
                     .ok_or_else(|| syn::Error::new(rule.span, "ends_with requires a value"))?,
                 _ => return Err(syn::Error::new(rule.span, "ends_with requires a value")),
             };
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must end with {}.", display_name, suffix)
-            });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "ends_with", has_bail,
-                quote! { ::scrutiny::rules::string::ends_with(val, #suffix) })
+            let msg = rule
+                .message
+                .clone()
+                .unwrap_or_else(|| format!("The {} field must end with {}.", display_name, suffix));
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "ends_with",
+                has_bail,
+                quote! { ::scrutiny::rules::string::ends_with(val, #suffix) },
+            )
         }
 
-        "nested" | "dive" => {
-            gen_dive_check(field, &field_ident, field_name, has_bail)
-        }
+        "nested" | "dive" => gen_dive_check(field, &field_ident, field_name, has_bail),
 
         "custom" => {
             let fn_name = match &rule.params {
                 RuleParams::Value(v) => v.clone(),
-                _ => return Err(syn::Error::new(rule.span, "custom requires a function name")),
+                _ => {
+                    return Err(syn::Error::new(
+                        rule.span,
+                        "custom requires a function name",
+                    ));
+                }
             };
             let fn_ident = format_ident!("{}", fn_name);
             Ok(quote! {
@@ -1096,36 +1459,68 @@ fn gen_rule_check(
         }
 
         "integer" => {
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must be an integer.", display_name)
-            });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "integer", has_bail,
-                quote! { ::scrutiny::rules::string::is_integer(val) })
+            let msg = rule
+                .message
+                .clone()
+                .unwrap_or_else(|| format!("The {} field must be an integer.", display_name));
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "integer",
+                has_bail,
+                quote! { ::scrutiny::rules::string::is_integer(val) },
+            )
         }
 
         "boolean" => {
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must be true or false.", display_name)
-            });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "boolean", has_bail,
-                quote! { matches!(val, "true" | "false" | "1" | "0") })
+            let msg = rule
+                .message
+                .clone()
+                .unwrap_or_else(|| format!("The {} field must be true or false.", display_name));
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "boolean",
+                has_bail,
+                quote! { matches!(val, "true" | "false" | "1" | "0") },
+            )
         }
 
         "accepted" => {
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must be accepted.", display_name)
-            });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "accepted", has_bail,
-                quote! { ::scrutiny::rules::presence::is_accepted(val) })
+            let msg = rule
+                .message
+                .clone()
+                .unwrap_or_else(|| format!("The {} field must be accepted.", display_name));
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "accepted",
+                has_bail,
+                quote! { ::scrutiny::rules::presence::is_accepted(val) },
+            )
         }
 
         "accepted_if" => {
             let (cond_field, cond_value) = extract_field_value_params(rule)?;
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must be accepted.", display_name)
-            });
-            let check = gen_string_rule_check(field, &field_ident, field_name, &msg, "accepted_if", has_bail,
-                quote! { ::scrutiny::rules::presence::is_accepted(val) })?;
+            let msg = rule
+                .message
+                .clone()
+                .unwrap_or_else(|| format!("The {} field must be accepted.", display_name));
+            let check = gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "accepted_if",
+                has_bail,
+                quote! { ::scrutiny::rules::presence::is_accepted(val) },
+            )?;
             Ok(quote! {
                 {
                     let other = ::scrutiny::traits::FieldAccess::get_field_value(self, #cond_field);
@@ -1137,20 +1532,36 @@ fn gen_rule_check(
         }
 
         "declined" => {
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must be declined.", display_name)
-            });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "declined", has_bail,
-                quote! { ::scrutiny::rules::presence::is_declined(val) })
+            let msg = rule
+                .message
+                .clone()
+                .unwrap_or_else(|| format!("The {} field must be declined.", display_name));
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "declined",
+                has_bail,
+                quote! { ::scrutiny::rules::presence::is_declined(val) },
+            )
         }
 
         "declined_if" => {
             let (cond_field, cond_value) = extract_field_value_params(rule)?;
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must be declined.", display_name)
-            });
-            let check = gen_string_rule_check(field, &field_ident, field_name, &msg, "declined_if", has_bail,
-                quote! { ::scrutiny::rules::presence::is_declined(val) })?;
+            let msg = rule
+                .message
+                .clone()
+                .unwrap_or_else(|| format!("The {} field must be declined.", display_name));
+            let check = gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "declined_if",
+                has_bail,
+                quote! { ::scrutiny::rules::presence::is_declined(val) },
+            )?;
             Ok(quote! {
                 {
                     let other = ::scrutiny::traits::FieldAccess::get_field_value(self, #cond_field);
@@ -1165,14 +1576,22 @@ fn gen_rule_check(
             let msg = rule.message.clone().unwrap_or_else(|| {
                 format!("The {} field must not be empty when present.", display_name)
             });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "filled", has_bail,
-                quote! { ::scrutiny::rules::presence::is_filled(val) })
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "filled",
+                has_bail,
+                quote! { ::scrutiny::rules::presence::is_filled(val) },
+            )
         }
 
         "prohibited" => {
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field is prohibited.", display_name)
-            });
+            let msg = rule
+                .message
+                .clone()
+                .unwrap_or_else(|| format!("The {} field is prohibited.", display_name));
             if field.is_option {
                 Ok(quote! {
                     if self.#field_ident.is_some() {
@@ -1192,9 +1611,10 @@ fn gen_rule_check(
 
         "prohibited_if" => {
             let (cond_field, cond_value) = extract_field_value_params(rule)?;
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field is prohibited.", display_name)
-            });
+            let msg = rule
+                .message
+                .clone()
+                .unwrap_or_else(|| format!("The {} field is prohibited.", display_name));
             if field.is_option {
                 Ok(quote! {
                     {
@@ -1224,9 +1644,10 @@ fn gen_rule_check(
 
         "prohibited_unless" => {
             let (cond_field, cond_value) = extract_field_value_params(rule)?;
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field is prohibited.", display_name)
-            });
+            let msg = rule
+                .message
+                .clone()
+                .unwrap_or_else(|| format!("The {} field is prohibited.", display_name));
             if field.is_option {
                 Ok(quote! {
                     {
@@ -1257,20 +1678,36 @@ fn gen_rule_check(
         "required_with_all" => {
             let fields_list = match &rule.params {
                 RuleParams::List(items) => items.clone(),
-                _ => return Err(syn::Error::new(rule.span, "required_with_all requires a list of field names")),
-            };
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field is required.", display_name)
-            });
-            let checks: Vec<TokenStream> = fields_list.iter().map(|f| {
-                quote! {
-                    {
-                        let fv = ::scrutiny::traits::FieldAccess::get_field_value(self, #f);
-                        !fv.is_none() && !fv.is_empty()
-                    }
+                _ => {
+                    return Err(syn::Error::new(
+                        rule.span,
+                        "required_with_all requires a list of field names",
+                    ));
                 }
-            }).collect();
-            let presence_check = gen_presence_check(field, &field_ident, field_name, &msg, "required_with_all", &bail_break);
+            };
+            let msg = rule
+                .message
+                .clone()
+                .unwrap_or_else(|| format!("The {} field is required.", display_name));
+            let checks: Vec<TokenStream> = fields_list
+                .iter()
+                .map(|f| {
+                    quote! {
+                        {
+                            let fv = ::scrutiny::traits::FieldAccess::get_field_value(self, #f);
+                            !fv.is_none() && !fv.is_empty()
+                        }
+                    }
+                })
+                .collect();
+            let presence_check = gen_presence_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "required_with_all",
+                &bail_break,
+            );
             Ok(quote! {
                 if #(#checks)&&* {
                     #presence_check
@@ -1281,20 +1718,36 @@ fn gen_rule_check(
         "required_without_all" => {
             let fields_list = match &rule.params {
                 RuleParams::List(items) => items.clone(),
-                _ => return Err(syn::Error::new(rule.span, "required_without_all requires a list of field names")),
-            };
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field is required.", display_name)
-            });
-            let checks: Vec<TokenStream> = fields_list.iter().map(|f| {
-                quote! {
-                    {
-                        let fv = ::scrutiny::traits::FieldAccess::get_field_value(self, #f);
-                        fv.is_none() || fv.is_empty()
-                    }
+                _ => {
+                    return Err(syn::Error::new(
+                        rule.span,
+                        "required_without_all requires a list of field names",
+                    ));
                 }
-            }).collect();
-            let presence_check = gen_presence_check(field, &field_ident, field_name, &msg, "required_without_all", &bail_break);
+            };
+            let msg = rule
+                .message
+                .clone()
+                .unwrap_or_else(|| format!("The {} field is required.", display_name));
+            let checks: Vec<TokenStream> = fields_list
+                .iter()
+                .map(|f| {
+                    quote! {
+                        {
+                            let fv = ::scrutiny::traits::FieldAccess::get_field_value(self, #f);
+                            fv.is_none() || fv.is_empty()
+                        }
+                    }
+                })
+                .collect();
+            let presence_check = gen_presence_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "required_without_all",
+                &bail_break,
+            );
             Ok(quote! {
                 if #(#checks)&&* {
                     #presence_check
@@ -1312,20 +1765,36 @@ fn gen_rule_check(
                     .ok_or_else(|| syn::Error::new(rule.span, "not_regex requires a pattern"))?,
                 _ => return Err(syn::Error::new(rule.span, "not_regex requires a pattern")),
             };
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} format is invalid.", display_name)
-            });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "not_regex", has_bail,
-                quote! { ::scrutiny::rules::format::not_matches_regex(val, #pattern) })
+            let msg = rule
+                .message
+                .clone()
+                .unwrap_or_else(|| format!("The {} format is invalid.", display_name));
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "not_regex",
+                has_bail,
+                quote! { ::scrutiny::rules::format::not_matches_regex(val, #pattern) },
+            )
         }
 
         "contains" => {
             let needle = extract_single_value(rule, "contains")?;
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must contain {}.", display_name, needle)
-            });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "contains", has_bail,
-                quote! { ::scrutiny::rules::string::contains(val, #needle) })
+            let msg = rule
+                .message
+                .clone()
+                .unwrap_or_else(|| format!("The {} field must contain {}.", display_name, needle));
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "contains",
+                has_bail,
+                quote! { ::scrutiny::rules::string::contains(val, #needle) },
+            )
         }
 
         "doesnt_contain" => {
@@ -1333,8 +1802,15 @@ fn gen_rule_check(
             let msg = rule.message.clone().unwrap_or_else(|| {
                 format!("The {} field must not contain {}.", display_name, needle)
             });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "doesnt_contain", has_bail,
-                quote! { ::scrutiny::rules::string::doesnt_contain(val, #needle) })
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "doesnt_contain",
+                has_bail,
+                quote! { ::scrutiny::rules::string::doesnt_contain(val, #needle) },
+            )
         }
 
         "doesnt_start_with" => {
@@ -1342,8 +1818,15 @@ fn gen_rule_check(
             let msg = rule.message.clone().unwrap_or_else(|| {
                 format!("The {} field must not start with {}.", display_name, prefix)
             });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "doesnt_start_with", has_bail,
-                quote! { ::scrutiny::rules::string::doesnt_start_with(val, #prefix) })
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "doesnt_start_with",
+                has_bail,
+                quote! { ::scrutiny::rules::string::doesnt_start_with(val, #prefix) },
+            )
         }
 
         "doesnt_end_with" => {
@@ -1351,31 +1834,57 @@ fn gen_rule_check(
             let msg = rule.message.clone().unwrap_or_else(|| {
                 format!("The {} field must not end with {}.", display_name, suffix)
             });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "doesnt_end_with", has_bail,
-                quote! { ::scrutiny::rules::string::doesnt_end_with(val, #suffix) })
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "doesnt_end_with",
+                has_bail,
+                quote! { ::scrutiny::rules::string::doesnt_end_with(val, #suffix) },
+            )
         }
 
         "uppercase" => {
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must be uppercase.", display_name)
-            });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "uppercase", has_bail,
-                quote! { ::scrutiny::rules::string::is_uppercase(val) })
+            let msg = rule
+                .message
+                .clone()
+                .unwrap_or_else(|| format!("The {} field must be uppercase.", display_name));
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "uppercase",
+                has_bail,
+                quote! { ::scrutiny::rules::string::is_uppercase(val) },
+            )
         }
 
         "lowercase" => {
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must be lowercase.", display_name)
-            });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "lowercase", has_bail,
-                quote! { ::scrutiny::rules::string::is_lowercase(val) })
+            let msg = rule
+                .message
+                .clone()
+                .unwrap_or_else(|| format!("The {} field must be lowercase.", display_name));
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "lowercase",
+                has_bail,
+                quote! { ::scrutiny::rules::string::is_lowercase(val) },
+            )
         }
 
         "gt" => {
             let other = extract_single_value(rule, "gt")?;
             let other_display = other.replace('_', " ");
             let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must be greater than {}.", display_name, other_display)
+                format!(
+                    "The {} field must be greater than {}.",
+                    display_name, other_display
+                )
             });
             Ok(quote! {
                 {
@@ -1393,7 +1902,10 @@ fn gen_rule_check(
             let other = extract_single_value(rule, "gte")?;
             let other_display = other.replace('_', " ");
             let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must be greater than or equal to {}.", display_name, other_display)
+                format!(
+                    "The {} field must be greater than or equal to {}.",
+                    display_name, other_display
+                )
             });
             Ok(quote! {
                 {
@@ -1411,7 +1923,10 @@ fn gen_rule_check(
             let other = extract_single_value(rule, "lt")?;
             let other_display = other.replace('_', " ");
             let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must be less than {}.", display_name, other_display)
+                format!(
+                    "The {} field must be less than {}.",
+                    display_name, other_display
+                )
             });
             Ok(quote! {
                 {
@@ -1429,7 +1944,10 @@ fn gen_rule_check(
             let other = extract_single_value(rule, "lte")?;
             let other_display = other.replace('_', " ");
             let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must be less than or equal to {}.", display_name, other_display)
+                format!(
+                    "The {} field must be less than or equal to {}.",
+                    display_name, other_display
+                )
             });
             Ok(quote! {
                 {
@@ -1451,24 +1969,56 @@ fn gen_rule_check(
                     let msg = rule.message.clone().unwrap_or_else(|| {
                         format!("The {} field must be exactly {}.", display_name, value_str)
                     });
-                    gen_numeric_rule_check(field, &field_ident, field_name, &msg, "size", has_bail, &value_str,
-                        |v| quote! { *val == #v })
+                    gen_numeric_rule_check(
+                        field,
+                        &field_ident,
+                        field_name,
+                        &msg,
+                        "size",
+                        has_bail,
+                        &value_str,
+                        |v| quote! { *val == #v },
+                    )
                 }
                 FieldKind::Vec => {
                     let msg = rule.message.clone().unwrap_or_else(|| {
-                        format!("The {} field must have exactly {} items.", display_name, value_str)
+                        format!(
+                            "The {} field must have exactly {} items.",
+                            display_name, value_str
+                        )
                     });
-                    let size_val: usize = value_str.parse().map_err(|_| syn::Error::new(rule.span, "size must be integer for Vec"))?;
-                    gen_vec_rule_check(field, &field_ident, field_name, &msg, "size", has_bail,
-                        quote! { val.len() == #size_val })
+                    let size_val: usize = value_str
+                        .parse()
+                        .map_err(|_| syn::Error::new(rule.span, "size must be integer for Vec"))?;
+                    gen_vec_rule_check(
+                        field,
+                        &field_ident,
+                        field_name,
+                        &msg,
+                        "size",
+                        has_bail,
+                        quote! { val.len() == #size_val },
+                    )
                 }
                 _ => {
                     let msg = rule.message.clone().unwrap_or_else(|| {
-                        format!("The {} field must be exactly {} characters.", display_name, value_str)
+                        format!(
+                            "The {} field must be exactly {} characters.",
+                            display_name, value_str
+                        )
                     });
-                    let size_val: usize = value_str.parse().map_err(|_| syn::Error::new(rule.span, "size must be a number"))?;
-                    gen_string_rule_check(field, &field_ident, field_name, &msg, "size", has_bail,
-                        quote! { ::scrutiny::rules::string::check_size(val, #size_val) })
+                    let size_val: usize = value_str
+                        .parse()
+                        .map_err(|_| syn::Error::new(rule.span, "size must be a number"))?;
+                    gen_string_rule_check(
+                        field,
+                        &field_ident,
+                        field_name,
+                        &msg,
+                        "size",
+                        has_bail,
+                        quote! { ::scrutiny::rules::string::check_size(val, #size_val) },
+                    )
                 }
             }
         }
@@ -1481,92 +2031,180 @@ fn gen_rule_check(
             let count: usize = value_str.parse().map_err(|_| {
                 syn::Error::new(rule.span, "digits value must be a positive integer")
             })?;
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "digits", has_bail,
-                quote! { ::scrutiny::rules::numeric::check_digits(val, #count) })
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "digits",
+                has_bail,
+                quote! { ::scrutiny::rules::numeric::check_digits(val, #count) },
+            )
         }
 
         "digits_between" => {
             let (min_str, max_str) = match &rule.params {
                 RuleParams::Named(params) => {
-                    let min = params.iter().find(|(k, _)| k == "min").map(|(_, v)| v.clone())
+                    let min = params
+                        .iter()
+                        .find(|(k, _)| k == "min")
+                        .map(|(_, v)| v.clone())
                         .ok_or_else(|| syn::Error::new(rule.span, "digits_between requires min"))?;
-                    let max = params.iter().find(|(k, _)| k == "max").map(|(_, v)| v.clone())
+                    let max = params
+                        .iter()
+                        .find(|(k, _)| k == "max")
+                        .map(|(_, v)| v.clone())
                         .ok_or_else(|| syn::Error::new(rule.span, "digits_between requires max"))?;
                     (min, max)
                 }
-                _ => return Err(syn::Error::new(rule.span, "digits_between requires min and max")),
+                _ => {
+                    return Err(syn::Error::new(
+                        rule.span,
+                        "digits_between requires min and max",
+                    ));
+                }
             };
             let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must be between {} and {} digits.", display_name, min_str, max_str)
+                format!(
+                    "The {} field must be between {} and {} digits.",
+                    display_name, min_str, max_str
+                )
             });
-            let min_val: usize = min_str.parse().map_err(|_| syn::Error::new(rule.span, "digits_between min must be integer"))?;
-            let max_val: usize = max_str.parse().map_err(|_| syn::Error::new(rule.span, "digits_between max must be integer"))?;
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "digits_between", has_bail,
-                quote! { ::scrutiny::rules::numeric::check_digits_between(val, #min_val, #max_val) })
+            let min_val: usize = min_str
+                .parse()
+                .map_err(|_| syn::Error::new(rule.span, "digits_between min must be integer"))?;
+            let max_val: usize = max_str
+                .parse()
+                .map_err(|_| syn::Error::new(rule.span, "digits_between max must be integer"))?;
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "digits_between",
+                has_bail,
+                quote! { ::scrutiny::rules::numeric::check_digits_between(val, #min_val, #max_val) },
+            )
         }
 
         "multiple_of" => {
             let value_str = extract_single_value(rule, "multiple_of")?;
             let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must be a multiple of {}.", display_name, value_str)
+                format!(
+                    "The {} field must be a multiple of {}.",
+                    display_name, value_str
+                )
             });
-            let n: f64 = value_str.parse().map_err(|_| {
-                syn::Error::new(rule.span, "multiple_of value must be a number")
-            })?;
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "multiple_of", has_bail,
+            let n: f64 = value_str
+                .parse()
+                .map_err(|_| syn::Error::new(rule.span, "multiple_of value must be a number"))?;
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "multiple_of",
+                has_bail,
                 quote! {
                     {
                         let parsed: ::std::result::Result<f64, _> = val.parse();
                         parsed.is_ok_and(|v| ::scrutiny::rules::numeric::is_multiple_of(v, #n))
                     }
-                })
+                },
+            )
         }
 
         "decimal" => {
             let (min_str, max_str) = match &rule.params {
                 RuleParams::Value(v) => (v.clone(), None),
                 RuleParams::Named(params) => {
-                    let min = params.iter().find(|(k, _)| k == "min").map(|(_, v)| v.clone())
+                    let min = params
+                        .iter()
+                        .find(|(k, _)| k == "min")
+                        .map(|(_, v)| v.clone())
                         .ok_or_else(|| syn::Error::new(rule.span, "decimal requires min"))?;
-                    let max = params.iter().find(|(k, _)| k == "max").map(|(_, v)| v.clone());
+                    let max = params
+                        .iter()
+                        .find(|(k, _)| k == "max")
+                        .map(|(_, v)| v.clone());
                     (min, max)
                 }
                 _ => return Err(syn::Error::new(rule.span, "decimal requires parameters")),
             };
-            let min_places: usize = min_str.parse().map_err(|_| syn::Error::new(rule.span, "decimal min must be integer"))?;
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                match &max_str {
-                    Some(max) => format!("The {} field must have between {} and {} decimal places.", display_name, min_str, max),
-                    None => format!("The {} field must have {} decimal places.", display_name, min_str),
-                }
+            let min_places: usize = min_str
+                .parse()
+                .map_err(|_| syn::Error::new(rule.span, "decimal min must be integer"))?;
+            let msg = rule.message.clone().unwrap_or_else(|| match &max_str {
+                Some(max) => format!(
+                    "The {} field must have between {} and {} decimal places.",
+                    display_name, min_str, max
+                ),
+                None => format!(
+                    "The {} field must have {} decimal places.",
+                    display_name, min_str
+                ),
             });
             match max_str {
                 Some(max) => {
-                    let max_places: usize = max.parse().map_err(|_| syn::Error::new(rule.span, "decimal max must be integer"))?;
-                    gen_string_rule_check(field, &field_ident, field_name, &msg, "decimal", has_bail,
-                        quote! { ::scrutiny::rules::numeric::check_decimal(val, #min_places, Some(#max_places)) })
+                    let max_places: usize = max
+                        .parse()
+                        .map_err(|_| syn::Error::new(rule.span, "decimal max must be integer"))?;
+                    gen_string_rule_check(
+                        field,
+                        &field_ident,
+                        field_name,
+                        &msg,
+                        "decimal",
+                        has_bail,
+                        quote! { ::scrutiny::rules::numeric::check_decimal(val, #min_places, Some(#max_places)) },
+                    )
                 }
-                None => {
-                    gen_string_rule_check(field, &field_ident, field_name, &msg, "decimal", has_bail,
-                        quote! { ::scrutiny::rules::numeric::check_decimal(val, #min_places, None) })
-                }
+                None => gen_string_rule_check(
+                    field,
+                    &field_ident,
+                    field_name,
+                    &msg,
+                    "decimal",
+                    has_bail,
+                    quote! { ::scrutiny::rules::numeric::check_decimal(val, #min_places, None) },
+                ),
             }
         }
 
         "date" => {
             let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must be a valid ISO 8601 date (YYYY-MM-DD).", display_name)
+                format!(
+                    "The {} field must be a valid ISO 8601 date (YYYY-MM-DD).",
+                    display_name
+                )
             });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "date", has_bail,
-                quote! { ::scrutiny::rules::format::is_iso_date(val) })
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "date",
+                has_bail,
+                quote! { ::scrutiny::rules::format::is_iso_date(val) },
+            )
         }
 
         "datetime" => {
             let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must be a valid ISO 8601 datetime.", display_name)
+                format!(
+                    "The {} field must be a valid ISO 8601 datetime.",
+                    display_name
+                )
             });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "datetime", has_bail,
-                quote! { ::scrutiny::rules::format::is_iso_datetime(val) })
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "datetime",
+                has_bail,
+                quote! { ::scrutiny::rules::format::is_iso_datetime(val) },
+            )
         }
 
         "date_equals" => {
@@ -1574,17 +2212,34 @@ fn gen_rule_check(
             let msg = rule.message.clone().unwrap_or_else(|| {
                 format!("The {} field must be equal to {}.", display_name, other)
             });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "date_equals", has_bail,
-                quote! { ::scrutiny::rules::format::is_date_equals(val, #other) })
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "date_equals",
+                has_bail,
+                quote! { ::scrutiny::rules::format::is_date_equals(val, #other) },
+            )
         }
 
         "before" => {
             let other = extract_single_value(rule, "before")?;
             let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must be a date before {}.", display_name, other)
+                format!(
+                    "The {} field must be a date before {}.",
+                    display_name, other
+                )
             });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "before", has_bail,
-                quote! { ::scrutiny::rules::format::is_before(val, #other) })
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "before",
+                has_bail,
+                quote! { ::scrutiny::rules::format::is_before(val, #other) },
+            )
         }
 
         "after" => {
@@ -1592,48 +2247,94 @@ fn gen_rule_check(
             let msg = rule.message.clone().unwrap_or_else(|| {
                 format!("The {} field must be a date after {}.", display_name, other)
             });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "after", has_bail,
-                quote! { ::scrutiny::rules::format::is_after(val, #other) })
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "after",
+                has_bail,
+                quote! { ::scrutiny::rules::format::is_after(val, #other) },
+            )
         }
 
         "before_or_equal" => {
             let other = extract_single_value(rule, "before_or_equal")?;
             let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must be a date before or equal to {}.", display_name, other)
+                format!(
+                    "The {} field must be a date before or equal to {}.",
+                    display_name, other
+                )
             });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "before_or_equal", has_bail,
-                quote! { ::scrutiny::rules::format::is_before_or_equal(val, #other) })
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "before_or_equal",
+                has_bail,
+                quote! { ::scrutiny::rules::format::is_before_or_equal(val, #other) },
+            )
         }
 
         "after_or_equal" => {
             let other = extract_single_value(rule, "after_or_equal")?;
             let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must be a date after or equal to {}.", display_name, other)
+                format!(
+                    "The {} field must be a date after or equal to {}.",
+                    display_name, other
+                )
             });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "after_or_equal", has_bail,
-                quote! { ::scrutiny::rules::format::is_after_or_equal(val, #other) })
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "after_or_equal",
+                has_bail,
+                quote! { ::scrutiny::rules::format::is_after_or_equal(val, #other) },
+            )
         }
 
         "hex_color" => {
             let msg = rule.message.clone().unwrap_or_else(|| {
                 format!("The {} field must be a valid hex color.", display_name)
             });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "hex_color", has_bail,
-                quote! { ::scrutiny::rules::format::is_hex_color(val) })
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "hex_color",
+                has_bail,
+                quote! { ::scrutiny::rules::format::is_hex_color(val) },
+            )
         }
 
         "timezone" => {
-            let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must be a valid timezone.", display_name)
-            });
-            gen_string_rule_check(field, &field_ident, field_name, &msg, "timezone", has_bail,
-                quote! { ::scrutiny::rules::format::is_timezone(val) })
+            let msg = rule
+                .message
+                .clone()
+                .unwrap_or_else(|| format!("The {} field must be a valid timezone.", display_name));
+            gen_string_rule_check(
+                field,
+                &field_ident,
+                field_name,
+                &msg,
+                "timezone",
+                has_bail,
+                quote! { ::scrutiny::rules::format::is_timezone(val) },
+            )
         }
 
         "in_array" => {
             let other = extract_single_value(rule, "in_array")?;
             let msg = rule.message.clone().unwrap_or_else(|| {
-                format!("The {} field must exist in {}.", display_name, other.replace('_', " "))
+                format!(
+                    "The {} field must exist in {}.",
+                    display_name,
+                    other.replace('_', " ")
+                )
             });
             Ok(quote! {
                 {
@@ -1662,7 +2363,10 @@ fn gen_rule_check(
             })
         }
 
-        _ => Err(syn::Error::new(rule.span, format!("unknown validation rule: {}", rule.name))),
+        _ => Err(syn::Error::new(
+            rule.span,
+            format!("unknown validation rule: {}", rule.name),
+        )),
     }
 }
 
@@ -1670,13 +2374,26 @@ fn gen_rule_check(
 fn extract_field_value_params(rule: &FieldRule) -> syn::Result<(String, String)> {
     match &rule.params {
         RuleParams::Named(params) => {
-            let f = params.iter().find(|(k, _)| k == "field").map(|(_, v)| v.clone())
-                .ok_or_else(|| syn::Error::new(rule.span, format!("{} requires field", rule.name)))?;
-            let v = params.iter().find(|(k, _)| k == "value").map(|(_, v)| v.clone())
-                .ok_or_else(|| syn::Error::new(rule.span, format!("{} requires value", rule.name)))?;
+            let f = params
+                .iter()
+                .find(|(k, _)| k == "field")
+                .map(|(_, v)| v.clone())
+                .ok_or_else(|| {
+                    syn::Error::new(rule.span, format!("{} requires field", rule.name))
+                })?;
+            let v = params
+                .iter()
+                .find(|(k, _)| k == "value")
+                .map(|(_, v)| v.clone())
+                .ok_or_else(|| {
+                    syn::Error::new(rule.span, format!("{} requires value", rule.name))
+                })?;
             Ok((f, v))
         }
-        _ => Err(syn::Error::new(rule.span, format!("{} requires field and value", rule.name))),
+        _ => Err(syn::Error::new(
+            rule.span,
+            format!("{} requires field and value", rule.name),
+        )),
     }
 }
 
@@ -1696,9 +2413,10 @@ fn gen_enum_field_check(
         quote! {}
     };
 
-    let msg = rule.message.clone().unwrap_or_else(|| {
-        default_message_for_rule(&rule.name, display_name, &rule.params)
-    });
+    let msg = rule
+        .message
+        .clone()
+        .unwrap_or_else(|| default_message_for_rule(&rule.name, display_name, &rule.params));
 
     // For string-based rules on Option<String>, generate if-let check
     // For required, generate presence check
@@ -1847,7 +2565,9 @@ fn gen_string_check_expr(
                 FieldKind::Integer | FieldKind::Float => {
                     let inner_ty = field.inner_type.as_ref().unwrap_or(&field.ty);
                     let raw: proc_macro2::TokenStream = v.parse().unwrap();
-                    return Ok(Some(quote! { { let val = #raw as #inner_ty; *val >= val } }));
+                    return Ok(Some(
+                        quote! { { let val = #raw as #inner_ty; *val >= val } },
+                    ));
                 }
                 _ => {
                     let n: usize = v.parse().unwrap_or(0);
@@ -1862,7 +2582,9 @@ fn gen_string_check_expr(
                 FieldKind::Integer | FieldKind::Float => {
                     let inner_ty = field.inner_type.as_ref().unwrap_or(&field.ty);
                     let raw: proc_macro2::TokenStream = v.parse().unwrap();
-                    return Ok(Some(quote! { { let val = #raw as #inner_ty; *val <= val } }));
+                    return Ok(Some(
+                        quote! { { let val = #raw as #inner_ty; *val <= val } },
+                    ));
                 }
                 _ => {
                     let n: usize = v.parse().unwrap_or(0);
@@ -1922,7 +2644,10 @@ fn default_message_for_rule(rule_name: &str, display_name: &str, _params: &RuleP
         "max" => format!("The {} field is too large.", display_name),
         "alpha" => format!("The {} field must only contain letters.", display_name),
         "uuid" => format!("The {} field must be a valid UUID.", display_name),
-        "date" => format!("The {} field must be a valid ISO 8601 date (YYYY-MM-DD).", display_name),
+        "date" => format!(
+            "The {} field must be a valid ISO 8601 date (YYYY-MM-DD).",
+            display_name
+        ),
         _ => format!("The {} field is invalid.", display_name),
     }
 }
@@ -1936,7 +2661,10 @@ fn extract_single_value(rule: &FieldRule, name: &str) -> syn::Result<String> {
             .find(|(k, _)| k == "value")
             .map(|(_, v)| v.clone())
             .ok_or_else(|| syn::Error::new(rule.span, format!("{} requires a value", name))),
-        _ => Err(syn::Error::new(rule.span, format!("{} requires a value", name))),
+        _ => Err(syn::Error::new(
+            rule.span,
+            format!("{} requires a value", name),
+        )),
     }
 }
 
@@ -2024,7 +2752,15 @@ fn gen_numeric_rule_check(
     let inner_ty = field.inner_type.as_ref().unwrap_or(&field.ty);
     let lit = quote! { (#raw_lit as #inner_ty) };
     let check_expr = make_check(lit);
-    gen_numeric_rule_check_raw(field, field_ident, field_name, msg, rule_name, has_bail, check_expr)
+    gen_numeric_rule_check_raw(
+        field,
+        field_ident,
+        field_name,
+        msg,
+        rule_name,
+        has_bail,
+        check_expr,
+    )
 }
 
 /// Helper to generate a numeric rule check with a pre-built check expression.

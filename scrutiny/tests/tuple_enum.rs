@@ -195,24 +195,32 @@ struct AdminUpdate {
 
 #[test]
 fn test_enum_in_list_via_strum_valid() {
-    let u = CreateUser2 { status: UserStatus::Active };
+    let u = CreateUser2 {
+        status: UserStatus::Active,
+    };
     assert!(u.validate().is_ok());
 }
 
 #[test]
 fn test_enum_in_list_via_strum_invalid() {
-    let u = CreateUser2 { status: UserStatus::Banned };
+    let u = CreateUser2 {
+        status: UserStatus::Banned,
+    };
     assert!(u.validate().is_err());
 }
 
 #[test]
 fn test_enum_not_in_via_strum_valid() {
-    let a = AdminUpdate { status: UserStatus::Active };
+    let a = AdminUpdate {
+        status: UserStatus::Active,
+    };
     assert!(a.validate().is_ok());
 }
 
 #[test]
 fn test_enum_not_in_via_strum_invalid() {
-    let a = AdminUpdate { status: UserStatus::Banned };
+    let a = AdminUpdate {
+        status: UserStatus::Banned,
+    };
     assert!(a.validate().is_err());
 }

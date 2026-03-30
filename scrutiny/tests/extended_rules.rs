@@ -26,14 +26,26 @@ struct StringRules {
 #[test]
 fn test_uppercase() {
     let s = StringRules {
-        upper: Some("hello".into()), lower: None, has_hello: None, no_bad: None,
-        no_x_start: None, no_exe: None, exact_five: None, int_str: None,
+        upper: Some("hello".into()),
+        lower: None,
+        has_hello: None,
+        no_bad: None,
+        no_x_start: None,
+        no_exe: None,
+        exact_five: None,
+        int_str: None,
     };
     assert!(s.validate().is_err());
 
     let s = StringRules {
-        upper: Some("HELLO".into()), lower: None, has_hello: None, no_bad: None,
-        no_x_start: None, no_exe: None, exact_five: None, int_str: None,
+        upper: Some("HELLO".into()),
+        lower: None,
+        has_hello: None,
+        no_bad: None,
+        no_x_start: None,
+        no_exe: None,
+        exact_five: None,
+        int_str: None,
     };
     assert!(s.validate().is_ok());
 }
@@ -41,14 +53,26 @@ fn test_uppercase() {
 #[test]
 fn test_lowercase() {
     let s = StringRules {
-        upper: None, lower: Some("HELLO".into()), has_hello: None, no_bad: None,
-        no_x_start: None, no_exe: None, exact_five: None, int_str: None,
+        upper: None,
+        lower: Some("HELLO".into()),
+        has_hello: None,
+        no_bad: None,
+        no_x_start: None,
+        no_exe: None,
+        exact_five: None,
+        int_str: None,
     };
     assert!(s.validate().is_err());
 
     let s = StringRules {
-        upper: None, lower: Some("hello".into()), has_hello: None, no_bad: None,
-        no_x_start: None, no_exe: None, exact_five: None, int_str: None,
+        upper: None,
+        lower: Some("hello".into()),
+        has_hello: None,
+        no_bad: None,
+        no_x_start: None,
+        no_exe: None,
+        exact_five: None,
+        int_str: None,
     };
     assert!(s.validate().is_ok());
 }
@@ -56,14 +80,26 @@ fn test_lowercase() {
 #[test]
 fn test_contains() {
     let s = StringRules {
-        upper: None, lower: None, has_hello: Some("say hello world".into()), no_bad: None,
-        no_x_start: None, no_exe: None, exact_five: None, int_str: None,
+        upper: None,
+        lower: None,
+        has_hello: Some("say hello world".into()),
+        no_bad: None,
+        no_x_start: None,
+        no_exe: None,
+        exact_five: None,
+        int_str: None,
     };
     assert!(s.validate().is_ok());
 
     let s = StringRules {
-        upper: None, lower: None, has_hello: Some("goodbye".into()), no_bad: None,
-        no_x_start: None, no_exe: None, exact_five: None, int_str: None,
+        upper: None,
+        lower: None,
+        has_hello: Some("goodbye".into()),
+        no_bad: None,
+        no_x_start: None,
+        no_exe: None,
+        exact_five: None,
+        int_str: None,
     };
     assert!(s.validate().is_err());
 }
@@ -71,14 +107,26 @@ fn test_contains() {
 #[test]
 fn test_doesnt_contain() {
     let s = StringRules {
-        upper: None, lower: None, has_hello: None, no_bad: Some("this is bad".into()),
-        no_x_start: None, no_exe: None, exact_five: None, int_str: None,
+        upper: None,
+        lower: None,
+        has_hello: None,
+        no_bad: Some("this is bad".into()),
+        no_x_start: None,
+        no_exe: None,
+        exact_five: None,
+        int_str: None,
     };
     assert!(s.validate().is_err());
 
     let s = StringRules {
-        upper: None, lower: None, has_hello: None, no_bad: Some("this is good".into()),
-        no_x_start: None, no_exe: None, exact_five: None, int_str: None,
+        upper: None,
+        lower: None,
+        has_hello: None,
+        no_bad: Some("this is good".into()),
+        no_x_start: None,
+        no_exe: None,
+        exact_five: None,
+        int_str: None,
     };
     assert!(s.validate().is_ok());
 }
@@ -86,14 +134,26 @@ fn test_doesnt_contain() {
 #[test]
 fn test_doesnt_start_with() {
     let s = StringRules {
-        upper: None, lower: None, has_hello: None, no_bad: None,
-        no_x_start: Some("Xfoo".into()), no_exe: None, exact_five: None, int_str: None,
+        upper: None,
+        lower: None,
+        has_hello: None,
+        no_bad: None,
+        no_x_start: Some("Xfoo".into()),
+        no_exe: None,
+        exact_five: None,
+        int_str: None,
     };
     assert!(s.validate().is_err());
 
     let s = StringRules {
-        upper: None, lower: None, has_hello: None, no_bad: None,
-        no_x_start: Some("foo".into()), no_exe: None, exact_five: None, int_str: None,
+        upper: None,
+        lower: None,
+        has_hello: None,
+        no_bad: None,
+        no_x_start: Some("foo".into()),
+        no_exe: None,
+        exact_five: None,
+        int_str: None,
     };
     assert!(s.validate().is_ok());
 }
@@ -101,8 +161,14 @@ fn test_doesnt_start_with() {
 #[test]
 fn test_doesnt_end_with() {
     let s = StringRules {
-        upper: None, lower: None, has_hello: None, no_bad: None,
-        no_x_start: None, no_exe: Some("virus.exe".into()), exact_five: None, int_str: None,
+        upper: None,
+        lower: None,
+        has_hello: None,
+        no_bad: None,
+        no_x_start: None,
+        no_exe: Some("virus.exe".into()),
+        exact_five: None,
+        int_str: None,
     };
     assert!(s.validate().is_err());
 }
@@ -110,14 +176,26 @@ fn test_doesnt_end_with() {
 #[test]
 fn test_size() {
     let s = StringRules {
-        upper: None, lower: None, has_hello: None, no_bad: None,
-        no_x_start: None, no_exe: None, exact_five: Some("12345".into()), int_str: None,
+        upper: None,
+        lower: None,
+        has_hello: None,
+        no_bad: None,
+        no_x_start: None,
+        no_exe: None,
+        exact_five: Some("12345".into()),
+        int_str: None,
     };
     assert!(s.validate().is_ok());
 
     let s = StringRules {
-        upper: None, lower: None, has_hello: None, no_bad: None,
-        no_x_start: None, no_exe: None, exact_five: Some("1234".into()), int_str: None,
+        upper: None,
+        lower: None,
+        has_hello: None,
+        no_bad: None,
+        no_x_start: None,
+        no_exe: None,
+        exact_five: Some("1234".into()),
+        int_str: None,
     };
     assert!(s.validate().is_err());
 }
@@ -125,14 +203,26 @@ fn test_size() {
 #[test]
 fn test_integer() {
     let s = StringRules {
-        upper: None, lower: None, has_hello: None, no_bad: None,
-        no_x_start: None, no_exe: None, exact_five: None, int_str: Some("42".into()),
+        upper: None,
+        lower: None,
+        has_hello: None,
+        no_bad: None,
+        no_x_start: None,
+        no_exe: None,
+        exact_five: None,
+        int_str: Some("42".into()),
     };
     assert!(s.validate().is_ok());
 
     let s = StringRules {
-        upper: None, lower: None, has_hello: None, no_bad: None,
-        no_x_start: None, no_exe: None, exact_five: None, int_str: Some("3.14".into()),
+        upper: None,
+        lower: None,
+        has_hello: None,
+        no_bad: None,
+        no_x_start: None,
+        no_exe: None,
+        exact_five: None,
+        int_str: Some("3.14".into()),
     };
     assert!(s.validate().is_err());
 }
@@ -149,21 +239,39 @@ struct AcceptDecline {
 
 #[test]
 fn test_accepted() {
-    let a = AcceptDecline { terms: Some("yes".into()), opt_out: None };
+    let a = AcceptDecline {
+        terms: Some("yes".into()),
+        opt_out: None,
+    };
     assert!(a.validate().is_ok());
-    let a = AcceptDecline { terms: Some("true".into()), opt_out: None };
+    let a = AcceptDecline {
+        terms: Some("true".into()),
+        opt_out: None,
+    };
     assert!(a.validate().is_ok());
-    let a = AcceptDecline { terms: Some("no".into()), opt_out: None };
+    let a = AcceptDecline {
+        terms: Some("no".into()),
+        opt_out: None,
+    };
     assert!(a.validate().is_err());
 }
 
 #[test]
 fn test_declined() {
-    let a = AcceptDecline { terms: None, opt_out: Some("no".into()) };
+    let a = AcceptDecline {
+        terms: None,
+        opt_out: Some("no".into()),
+    };
     assert!(a.validate().is_ok());
-    let a = AcceptDecline { terms: None, opt_out: Some("off".into()) };
+    let a = AcceptDecline {
+        terms: None,
+        opt_out: Some("off".into()),
+    };
     assert!(a.validate().is_ok());
-    let a = AcceptDecline { terms: None, opt_out: Some("yes".into()) };
+    let a = AcceptDecline {
+        terms: None,
+        opt_out: Some("yes".into()),
+    };
     assert!(a.validate().is_err());
 }
 
@@ -233,7 +341,10 @@ struct DateRules {
 fn test_date_valid() {
     let d = DateRules {
         birth_date: Some("2000-06-15".into()),
-        before_2025: None, after_2020: None, by_end_of_2025: None, exact_date: None,
+        before_2025: None,
+        after_2020: None,
+        by_end_of_2025: None,
+        exact_date: None,
     };
     assert!(d.validate().is_ok());
 }
@@ -242,7 +353,10 @@ fn test_date_valid() {
 fn test_date_invalid_format() {
     let d = DateRules {
         birth_date: Some("06/15/2000".into()),
-        before_2025: None, after_2020: None, by_end_of_2025: None, exact_date: None,
+        before_2025: None,
+        after_2020: None,
+        by_end_of_2025: None,
+        exact_date: None,
     };
     assert!(d.validate().is_err());
 }
@@ -252,7 +366,10 @@ fn test_date_invalid_day() {
     // Feb 30 doesn't exist
     let d = DateRules {
         birth_date: Some("2000-02-30".into()),
-        before_2025: None, after_2020: None, by_end_of_2025: None, exact_date: None,
+        before_2025: None,
+        after_2020: None,
+        by_end_of_2025: None,
+        exact_date: None,
     };
     assert!(d.validate().is_err());
 }
@@ -262,14 +379,20 @@ fn test_date_leap_year() {
     // 2000 was a leap year
     let d = DateRules {
         birth_date: Some("2000-02-29".into()),
-        before_2025: None, after_2020: None, by_end_of_2025: None, exact_date: None,
+        before_2025: None,
+        after_2020: None,
+        by_end_of_2025: None,
+        exact_date: None,
     };
     assert!(d.validate().is_ok());
 
     // 2001 was not
     let d = DateRules {
         birth_date: Some("2001-02-29".into()),
-        before_2025: None, after_2020: None, by_end_of_2025: None, exact_date: None,
+        before_2025: None,
+        after_2020: None,
+        by_end_of_2025: None,
+        exact_date: None,
     };
     assert!(d.validate().is_err());
 }
@@ -279,14 +402,18 @@ fn test_before() {
     let d = DateRules {
         birth_date: None,
         before_2025: Some("2024-12-31".into()),
-        after_2020: None, by_end_of_2025: None, exact_date: None,
+        after_2020: None,
+        by_end_of_2025: None,
+        exact_date: None,
     };
     assert!(d.validate().is_ok());
 
     let d = DateRules {
         birth_date: None,
         before_2025: Some("2025-06-01".into()),
-        after_2020: None, by_end_of_2025: None, exact_date: None,
+        after_2020: None,
+        by_end_of_2025: None,
+        exact_date: None,
     };
     assert!(d.validate().is_err());
 }
@@ -294,16 +421,20 @@ fn test_before() {
 #[test]
 fn test_after() {
     let d = DateRules {
-        birth_date: None, before_2025: None,
+        birth_date: None,
+        before_2025: None,
         after_2020: Some("2021-01-01".into()),
-        by_end_of_2025: None, exact_date: None,
+        by_end_of_2025: None,
+        exact_date: None,
     };
     assert!(d.validate().is_ok());
 
     let d = DateRules {
-        birth_date: None, before_2025: None,
+        birth_date: None,
+        before_2025: None,
         after_2020: Some("2019-12-31".into()),
-        by_end_of_2025: None, exact_date: None,
+        by_end_of_2025: None,
+        exact_date: None,
     };
     assert!(d.validate().is_err());
 }
@@ -311,13 +442,19 @@ fn test_after() {
 #[test]
 fn test_date_equals() {
     let d = DateRules {
-        birth_date: None, before_2025: None, after_2020: None, by_end_of_2025: None,
+        birth_date: None,
+        before_2025: None,
+        after_2020: None,
+        by_end_of_2025: None,
         exact_date: Some("2024-06-15".into()),
     };
     assert!(d.validate().is_ok());
 
     let d = DateRules {
-        birth_date: None, before_2025: None, after_2020: None, by_end_of_2025: None,
+        birth_date: None,
+        before_2025: None,
+        after_2020: None,
+        by_end_of_2025: None,
         exact_date: Some("2024-06-16".into()),
     };
     assert!(d.validate().is_err());
@@ -336,17 +473,20 @@ struct FormatRulesExtended {
 #[test]
 fn test_hex_color() {
     let f = FormatRulesExtended {
-        color: Some("#ff0000".into()), no_numbers_only: None,
+        color: Some("#ff0000".into()),
+        no_numbers_only: None,
     };
     assert!(f.validate().is_ok());
 
     let f = FormatRulesExtended {
-        color: Some("#f00".into()), no_numbers_only: None,
+        color: Some("#f00".into()),
+        no_numbers_only: None,
     };
     assert!(f.validate().is_ok());
 
     let f = FormatRulesExtended {
-        color: Some("red".into()), no_numbers_only: None,
+        color: Some("red".into()),
+        no_numbers_only: None,
     };
     assert!(f.validate().is_err());
 }
@@ -354,12 +494,14 @@ fn test_hex_color() {
 #[test]
 fn test_not_regex() {
     let f = FormatRulesExtended {
-        color: None, no_numbers_only: Some("123".into()),
+        color: None,
+        no_numbers_only: Some("123".into()),
     };
     assert!(f.validate().is_err()); // matches "only digits" pattern, should fail
 
     let f = FormatRulesExtended {
-        color: None, no_numbers_only: Some("abc123".into()),
+        color: None,
+        no_numbers_only: Some("abc123".into()),
     };
     assert!(f.validate().is_ok());
 }
@@ -383,12 +525,20 @@ struct NumericRules {
 #[test]
 fn test_digits() {
     let n = NumericRules {
-        pin: Some("1234".into()), code: None, multiple: None, price: None, flex_decimal: None,
+        pin: Some("1234".into()),
+        code: None,
+        multiple: None,
+        price: None,
+        flex_decimal: None,
     };
     assert!(n.validate().is_ok());
 
     let n = NumericRules {
-        pin: Some("123".into()), code: None, multiple: None, price: None, flex_decimal: None,
+        pin: Some("123".into()),
+        code: None,
+        multiple: None,
+        price: None,
+        flex_decimal: None,
     };
     assert!(n.validate().is_err());
 }
@@ -396,12 +546,20 @@ fn test_digits() {
 #[test]
 fn test_digits_between() {
     let n = NumericRules {
-        pin: None, code: Some("1234".into()), multiple: None, price: None, flex_decimal: None,
+        pin: None,
+        code: Some("1234".into()),
+        multiple: None,
+        price: None,
+        flex_decimal: None,
     };
     assert!(n.validate().is_ok());
 
     let n = NumericRules {
-        pin: None, code: Some("12".into()), multiple: None, price: None, flex_decimal: None,
+        pin: None,
+        code: Some("12".into()),
+        multiple: None,
+        price: None,
+        flex_decimal: None,
     };
     assert!(n.validate().is_err());
 }
@@ -409,12 +567,20 @@ fn test_digits_between() {
 #[test]
 fn test_multiple_of() {
     let n = NumericRules {
-        pin: None, code: None, multiple: Some("15".into()), price: None, flex_decimal: None,
+        pin: None,
+        code: None,
+        multiple: Some("15".into()),
+        price: None,
+        flex_decimal: None,
     };
     assert!(n.validate().is_ok());
 
     let n = NumericRules {
-        pin: None, code: None, multiple: Some("7".into()), price: None, flex_decimal: None,
+        pin: None,
+        code: None,
+        multiple: Some("7".into()),
+        price: None,
+        flex_decimal: None,
     };
     assert!(n.validate().is_err());
 }
@@ -422,22 +588,38 @@ fn test_multiple_of() {
 #[test]
 fn test_decimal() {
     let n = NumericRules {
-        pin: None, code: None, multiple: None, price: Some("19.99".into()), flex_decimal: None,
+        pin: None,
+        code: None,
+        multiple: None,
+        price: Some("19.99".into()),
+        flex_decimal: None,
     };
     assert!(n.validate().is_ok());
 
     let n = NumericRules {
-        pin: None, code: None, multiple: None, price: Some("19.9".into()), flex_decimal: None,
+        pin: None,
+        code: None,
+        multiple: None,
+        price: Some("19.9".into()),
+        flex_decimal: None,
     };
     assert!(n.validate().is_err()); // only 1 decimal place, needs exactly 2
 
     let n = NumericRules {
-        pin: None, code: None, multiple: None, price: None, flex_decimal: Some("3.14".into()),
+        pin: None,
+        code: None,
+        multiple: None,
+        price: None,
+        flex_decimal: Some("3.14".into()),
     };
     assert!(n.validate().is_ok()); // 2 places, between 1-3
 
     let n = NumericRules {
-        pin: None, code: None, multiple: None, price: None, flex_decimal: Some("3.1415".into()),
+        pin: None,
+        code: None,
+        multiple: None,
+        price: None,
+        flex_decimal: Some("3.1415".into()),
     };
     assert!(n.validate().is_err()); // 4 places, > max 3
 }
@@ -511,7 +693,7 @@ fn test_required_with_all_triggers() {
 fn test_required_with_all_skips_partial() {
     let m = MultiConditional {
         first_name: Some("John".into()),
-        last_name: None, // only one present, not all
+        last_name: None,          // only one present, not all
         full_name_greeting: None, // should pass
     };
     assert!(m.validate().is_ok());
@@ -533,13 +715,17 @@ fn test_filled_none_ok() {
 
 #[test]
 fn test_filled_empty_fails() {
-    let f = FilledTest { bio: Some("  ".into()) };
+    let f = FilledTest {
+        bio: Some("  ".into()),
+    };
     assert!(f.validate().is_err());
 }
 
 #[test]
 fn test_filled_with_content_ok() {
-    let f = FilledTest { bio: Some("Hello".into()) };
+    let f = FilledTest {
+        bio: Some("Hello".into()),
+    };
     assert!(f.validate().is_ok());
 }
 
@@ -581,37 +767,61 @@ struct Pagination {
 
 #[test]
 fn test_numeric_min_max_valid() {
-    let p = Pagination { per_page: 25.0, page: 1.0, offset: None };
+    let p = Pagination {
+        per_page: 25.0,
+        page: 1.0,
+        offset: None,
+    };
     assert!(p.validate().is_ok());
 }
 
 #[test]
 fn test_numeric_min_fails() {
-    let p = Pagination { per_page: 0.0, page: 1.0, offset: None };
+    let p = Pagination {
+        per_page: 0.0,
+        page: 1.0,
+        offset: None,
+    };
     assert!(p.validate().is_err());
 }
 
 #[test]
 fn test_numeric_max_fails() {
-    let p = Pagination { per_page: 99999.0, page: 1.0, offset: None };
+    let p = Pagination {
+        per_page: 99999.0,
+        page: 1.0,
+        offset: None,
+    };
     assert!(p.validate().is_err());
 }
 
 #[test]
 fn test_numeric_option_none_ok() {
-    let p = Pagination { per_page: 10.0, page: 1.0, offset: None };
+    let p = Pagination {
+        per_page: 10.0,
+        page: 1.0,
+        offset: None,
+    };
     assert!(p.validate().is_ok());
 }
 
 #[test]
 fn test_numeric_option_valid() {
-    let p = Pagination { per_page: 10.0, page: 1.0, offset: Some(5.0) };
+    let p = Pagination {
+        per_page: 10.0,
+        page: 1.0,
+        offset: Some(5.0),
+    };
     assert!(p.validate().is_ok());
 }
 
 #[test]
 fn test_numeric_option_invalid() {
-    let p = Pagination { per_page: 10.0, page: 1.0, offset: Some(-1.0) };
+    let p = Pagination {
+        per_page: 10.0,
+        page: 1.0,
+        offset: Some(-1.0),
+    };
     assert!(p.validate().is_err());
 }
 
@@ -625,25 +835,37 @@ struct IntRanges {
 
 #[test]
 fn test_int_between_valid() {
-    let r = IntRanges { score: 50, level: 100 };
+    let r = IntRanges {
+        score: 50,
+        level: 100,
+    };
     assert!(r.validate().is_ok());
 }
 
 #[test]
 fn test_int_between_too_low() {
-    let r = IntRanges { score: 0, level: 100 };
+    let r = IntRanges {
+        score: 0,
+        level: 100,
+    };
     assert!(r.validate().is_err());
 }
 
 #[test]
 fn test_int_between_too_high() {
-    let r = IntRanges { score: 101, level: 100 };
+    let r = IntRanges {
+        score: 101,
+        level: 100,
+    };
     assert!(r.validate().is_err());
 }
 
 #[test]
 fn test_int_max_fails() {
-    let r = IntRanges { score: 50, level: 256 };
+    let r = IntRanges {
+        score: 50,
+        level: 256,
+    };
     assert!(r.validate().is_err());
 }
 
@@ -678,7 +900,14 @@ fn test_vec_empty_fails_min() {
 #[test]
 fn test_vec_too_many_fails_max() {
     let v = VecRules {
-        tags: vec!["a".into(), "b".into(), "c".into(), "d".into(), "e".into(), "f".into()],
+        tags: vec![
+            "a".into(),
+            "b".into(),
+            "c".into(),
+            "d".into(),
+            "e".into(),
+            "f".into(),
+        ],
         coordinates: vec![1.0, 2.0, 3.0],
     };
     assert!(v.validate().is_err());
@@ -713,7 +942,11 @@ fn test_numeric_size_exact() {
 
 #[test]
 fn test_numeric_error_message() {
-    let p = Pagination { per_page: 0.0, page: 1.0, offset: None };
+    let p = Pagination {
+        per_page: 0.0,
+        page: 1.0,
+        offset: None,
+    };
     let err = p.validate().unwrap_err();
     let msgs = err.messages();
     // Should say "at least 1" not "at least 1 characters"

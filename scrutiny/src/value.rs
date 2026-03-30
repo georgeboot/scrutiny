@@ -175,4 +175,3 @@ impl<T: Into<FieldValue> + Clone> From<&Vec<T>> for FieldValue {
         FieldValue::List(vec.iter().map(|v| v.clone().into()).collect())
     }
 }
-

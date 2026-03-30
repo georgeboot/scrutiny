@@ -92,7 +92,7 @@ fn test_bail_stops_at_first_error() {
 fn test_min_max_length() {
     let user = CreateUser {
         email: Some("test@example.com".to_string()),
-        name: Some("A".to_string()), // too short (min 2)
+        name: Some("A".to_string()),         // too short (min 2)
         password: Some("short".to_string()), // too short (min 8)
         password_confirmation: Some("short".to_string()),
         website: None,
@@ -240,9 +240,13 @@ fn test_vec_nested_validation() {
     let team = Team {
         name: Some("Avengers".to_string()),
         members: vec![
-            Member { email: Some("valid@example.com".to_string()) },
+            Member {
+                email: Some("valid@example.com".to_string()),
+            },
             Member { email: None },
-            Member { email: Some("invalid".to_string()) },
+            Member {
+                email: Some("invalid".to_string()),
+            },
         ],
     };
     let err = team.validate().unwrap_err();
@@ -360,8 +364,12 @@ struct FormatTests {
 fn test_alpha() {
     let t = FormatTests {
         alpha_field: Some("abc123".to_string()), // invalid: has digits
-        alpha_num_field: None, alpha_dash_field: None, numeric_field: None,
-        uuid_field: None, ip_field: None, ascii_field: None,
+        alpha_num_field: None,
+        alpha_dash_field: None,
+        numeric_field: None,
+        uuid_field: None,
+        ip_field: None,
+        ascii_field: None,
     };
     let err = t.validate().unwrap_err();
     assert!(err.messages().contains_key("alpha_field"));
@@ -370,8 +378,12 @@ fn test_alpha() {
 #[test]
 fn test_uuid_valid() {
     let t = FormatTests {
-        alpha_field: None, alpha_num_field: None, alpha_dash_field: None,
-        numeric_field: None, ip_field: None, ascii_field: None,
+        alpha_field: None,
+        alpha_num_field: None,
+        alpha_dash_field: None,
+        numeric_field: None,
+        ip_field: None,
+        ascii_field: None,
         uuid_field: Some("550e8400-e29b-41d4-a716-446655440000".to_string()),
     };
     assert!(t.validate().is_ok());
@@ -380,8 +392,12 @@ fn test_uuid_valid() {
 #[test]
 fn test_uuid_invalid() {
     let t = FormatTests {
-        alpha_field: None, alpha_num_field: None, alpha_dash_field: None,
-        numeric_field: None, ip_field: None, ascii_field: None,
+        alpha_field: None,
+        alpha_num_field: None,
+        alpha_dash_field: None,
+        numeric_field: None,
+        ip_field: None,
+        ascii_field: None,
         uuid_field: Some("not-a-uuid".to_string()),
     };
     assert!(t.validate().is_err());
