@@ -10,6 +10,7 @@ jobs:
 
     permissions:
       contents: read
+      id-token: write
 
     steps:
       - name: Checkout the code
@@ -31,10 +32,13 @@ jobs:
           sed -i "s|scrutiny-derive = { path = \"../scrutiny-derive\" }|scrutiny-derive = { path = \"../scrutiny-derive\", version = \"${VERSION}\" }|" scrutiny/Cargo.toml
           sed -i "s|scrutiny = { path = \"../scrutiny\".*}|scrutiny = { path = \"../scrutiny\", version = \"${VERSION}\", features = [\"serde\", \"serde_json\", \"serde_path_to_error\"] }|" scrutiny-axum/Cargo.toml
 
+      - uses: rust-lang/crates-io-auth-action@v1
+        id: auth
+
       - name: Publish scrutiny-derive
         run: cargo publish -p scrutiny-derive --allow-dirty
         env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
 
       - name: Wait for crates.io index
         run: sleep 30
@@ -42,7 +46,7 @@ jobs:
       - name: Publish scrutiny
         run: cargo publish -p scrutiny --allow-dirty
         env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
 
       - name: Wait for crates.io index
         run: sleep 30
@@ -50,4 +54,4 @@ jobs:
       - name: Publish scrutiny-axum
         run: cargo publish -p scrutiny-axum --allow-dirty
         env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
